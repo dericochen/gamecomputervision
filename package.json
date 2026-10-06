@@ -1,11 +1,39 @@
 {
   "name": "ai-hand-battle",
-  "version": "3.0.0",
+  "productName": "AI Hand Battle",
+  "version": "4.0.0",
   "private": true,
   "type": "module",
-  "description": "Game kamera dengan bidik, energy blast, shield, nova, dan kalibrasi gestur.",
+  "description": "Game kamera dengan bidik, energy blast, shield, nova, boss, power-up, dan mode keramaian.",
+  "author": "dericochen",
+  "main": "electron/main.cjs",
   "engines": { "node": ">=22" },
   "scripts": {
-    "test": "node --check dist/app.js && node --check dist/tracker-worker.js && node scripts/check.mjs && node scripts/regression.mjs"
+    "test": "node --check dist/app.js && node --check dist/tracker-worker.js && node --check electron/main.cjs && node --check electron/preload.cjs && node scripts/check.mjs && node scripts/regression.mjs",
+    "start": "electron .",
+    "icon": "node scripts/make-icon.mjs",
+    "dist:win": "electron-builder --win --publish never",
+    "dist:mac": "electron-builder --mac --publish never",
+    "dist:linux": "electron-builder --linux --publish never"
+  },
+  "devDependencies": {
+    "electron": "^44.5.1",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "id.dericochen.aihandbattle",
+    "productName": "AI Hand Battle",
+    "directories": { "output": "release", "buildResources": "build" },
+    "files": ["dist/**/*", "electron/**/*", "build/icon.png", "package.json"],
+    "win": { "target": ["nsis", "portable"], "icon": "build/icon.png" },
+    "nsis": { "oneClick": false, "allowToChangeInstallationDirectory": true, "artifactName": "AI-Hand-Battle-Setup-${version}.${ext}" },
+    "portable": { "artifactName": "AI-Hand-Battle-Portable-${version}.${ext}" },
+    "mac": {
+      "target": ["dmg"],
+      "icon": "build/icon.png",
+      "category": "public.app-category.games",
+      "extendInfo": { "NSCameraUsageDescription": "AI Hand Battle memakai kamera untuk membaca gerakan tangan. Video diproses di perangkat dan tidak direkam." }
+    },
+    "linux": { "target": ["AppImage"], "icon": "build/icon.png", "category": "Game" }
   }
 }

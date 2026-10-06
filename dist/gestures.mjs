@@ -65,17 +65,56 @@ export function recognizeHand(landmarks,previous='idle',world,aspect=1,categorie
 }
 export function classifyHand(landmarks,previous='idle',world,aspect=1,categories=[],calibration=null){return recognizeHand(landmarks,previous,world,aspect,categories,calibration).gesture}
 
+// Apparent hand size in frame-height units. Bigger means closer to the camera.
+export function handSize(p,aspect=1){
+ return Math.max(Math.hypot((p[0].x-p[9].x)*aspect,p[0].y-p[9].y),Math.hypot((p[5].x-p[17].x)*aspect,p[5].y-p[17].y));
+}
+
+// Crowd defaults: the detector may see spectators, but only the locked player
+// (and that player's second hand) can aim, fire, shield, or charge.
+export const CROWD_DEFAULTS={minAcquireSize:.05,minKeepSize:.03,partnerSizeRatio:[.55,1.8],partnerReach:5.5,rememberMs:3000};
+
 export class HandControls {
- constructor(){this.calibration=null;this.reset()}
- reset(){this.tracks=[];this.primaryId=null;this.nextId=1;this.aim=null;this.lastAt=null;this.presentSince=null;this.pinchAnchor=null;this.lastPoint=null}
+ constructor(options={}){this.options={...CROWD_DEFAULTS,...options};this.calibration=null;this.roundLock=false;this.reset()}
+ reset(){this.tracks=[];this.primaryId=null;this.partnerId=null;this.nextId=1;this.aim=null;this.lastAt=null;this.presentSince=null;this.pinchAnchor=null;this.lastPoint=null;this.lastPrimary=null}
  setCalibration(profile){this.calibration=profile;this.reset()}
+ // Pick who controls the game. Prefer intentional aiming poses, then the closest,
+ // most central hand, and the spot where the last player stood.
+ acquire(hands,at,aspect){
+  const o=this.options;
+  // Soon after losing a player (or at any time during a round) a newcomer must be
+  // about as close to the camera as that player, so spectators cannot take over.
+  const recent=this.lastPrimary&&(this.roundLock||at-this.lastPrimary.at<o.rememberMs)?this.lastPrimary:null;
+  const minSize=recent?Math.max(o.minAcquireSize,recent.size*.6):o.minAcquireSize;
+  const eligible=hands.filter(h=>h.size>=minSize);
+  if(!eligible.length)return null;
+  const biggest=Math.max(...eligible.map(h=>h.size));
+  const rank=h=>{
+   let s=h.size/biggest-Math.abs(h.center.x-.5)*.35;
+   if(recent)s+=Math.max(0,.6-distance(h.center,recent.center)/Math.max(.08,recent.size*3))*.8;
+   if(h.raw==='point'||h.raw==='pinch')s+=.5;
+   return s;
+  };
+  // Intentional poses only win among hands at a similar distance to the closest one.
+  const close=eligible.filter(h=>h.size>=biggest*.6);
+  return close.sort((a,b)=>rank(b)-rank(a))[0];
+ }
  update(result,at,aspect=1){
-  const available=this.tracks.filter(t=>at-t.lastAt<700),used=new Set();
+  const o=this.options,available=this.tracks.filter(t=>at-t.lastAt<700),used=new Set();
   const hands=(result.landmarks??[]).map((p,i)=>({p,i})).filter(({p})=>valid(p)).map(({p,i})=>{
-   const center={x:(p[0].x+p[9].x)/2,y:(p[0].y+p[9].y)/2};
+   const center={x:(p[0].x+p[9].x)/2,y:(p[0].y+p[9].y)/2},size=handSize(p,aspect);
    const label=result.handedness?.[i]?.[0]?.categoryName??'';
    let old=null,best=Infinity;
-   for(const t of available){if(used.has(t.id))continue;const d=distance(center,t.center)+(label&&t.label&&label!==t.label?.2:0);if(d<best&&d<.5){old=t;best=d}}
+   for(const t of available){
+    if(used.has(t.id))continue;
+    // A track only continues with a hand at a similar place and distance, so a
+    // spectator stepping in cannot inherit the player's identity.
+    const ratio=t.size?size/t.size:1;if(ratio<.5||ratio>2)continue;
+    const d=distance(center,t.center)+(label&&t.label&&label!==t.label?.2:0);
+    // Radius grows with hand size and the time since it was last seen (fast swipes ~2.5 frames/s).
+    const radius=Math.min(.5,Math.max(.12,(t.size??size)+2.5*Math.max(0,at-t.lastAt)/1000));
+    if(d<best&&d<radius){old=t;best=d}
+   }
    const t=old??{id:this.nextId++,gesture:'idle',candidate:'idle',since:at,samples:0};used.add(t.id);
    if(old&&at-old.lastAt>250){t.gesture='idle';t.candidate='idle';t.samples=0;t.since=at}
    const recognition=recognizeHand(p,t.gesture,result.worldLandmarks?.[i],aspect,result.gestures?.[i],this.calibration),raw=recognition.gesture;
@@ -84,16 +123,25 @@ export class HandControls {
    if(raw!==t.gesture)t.gesture='idle';
    const dwell={point:60,pinch:100,palm:130,fist:220,idle:0}[raw];
    if(at-t.since>=dwell&&t.samples>=2)t.gesture=raw;
-   return {...t,p,center,label,lastAt:at,raw,...recognition,gesture:t.gesture};
+   return {...t,p,center,size,label,lastAt:at,raw,...recognition,gesture:t.gesture,role:'ignored'};
   });
   const previous=available.find(t=>t.id===this.primaryId);
   let primary=hands.find(t=>t.id===this.primaryId);
+  if(primary&&primary.size<o.minKeepSize)primary=null;
   if(!primary&&(!previous||at-previous.lastAt>500)){
-   primary=hands.find(t=>t.raw==='point')??hands.find(t=>t.raw==='pinch')??hands[0];
-   this.primaryId=primary?.id??null;this.aim=null;this.pinchAnchor=null;this.lastPoint=null;
+   primary=this.acquire(hands,at,aspect);
+   this.primaryId=primary?.id??null;this.partnerId=null;this.aim=null;this.pinchAnchor=null;this.lastPoint=null;
   }
   this.tracks=[...hands,...available.filter(t=>!used.has(t.id))];
-  if(!primary){this.presentSince=null;this.pinchAnchor=null;return {hands,primary:null,shield:false,aim:this.aim}}
+  if(!primary){this.presentSince=null;this.pinchAnchor=null;return {hands,primary:null,partner:null,ignored:hands.length,shield:false,aim:this.aim}}
+  primary.role='player';
+  this.lastPrimary={at,center:{...primary.center},size:primary.size};
+  // The player's other hand: similar distance from the camera and within arm's reach.
+  const [lo,hi]=o.partnerSizeRatio,reach=o.partnerReach*primary.size;
+  const partners=hands.filter(h=>h!==primary&&h.size/primary.size>=lo&&h.size/primary.size<=hi&&distance(h.center,primary.center)<=reach);
+  const partner=partners.find(h=>h.id===this.partnerId)??partners.sort((a,b)=>distance(a.center,primary.center)-distance(b.center,primary.center))[0]??null;
+  this.partnerId=partner?.id??null;if(partner)partner.role='partner';
+  const ignored=hands.filter(h=>h.role==='ignored').length;
   this.presentSince??=at;
   // A comfortable inner camera region maps onto the whole arena.
   let target={x:clamp((1-primary.p[8].x-.12)/.76,0,1),y:clamp((primary.p[8].y-.10)/.74,0,1)};
@@ -105,6 +153,6 @@ export class HandControls {
   this.aim=this.aim?{x:this.aim.x+(target.x-this.aim.x)*alpha,y:this.aim.y+(target.y-this.aim.y)*alpha}:target;
   if(primary.raw==='point')this.lastPoint={at,center:{...primary.center},aim:{...this.aim}};
   this.lastAt=at;
-  return {hands,primary,aim:this.aim,shield:hands.some(t=>t.gesture==='palm'),presentSince:this.presentSince};
+  return {hands,primary,partner,ignored,aim:this.aim,shield:primary.gesture==='palm'||partner?.gesture==='palm',presentSince:this.presentSince};
  }
 }

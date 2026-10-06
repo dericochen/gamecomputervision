@@ -26,6 +26,10 @@ python -m http.server 8000 --directory dist
 
 Buka `http://localhost:8000`, izinkan kamera, lalu gunakan **Kalibrasi 4 gerakan**. Untuk pemakaian melalui jaringan atau perangkat lain, gunakan URL HTTPS GitHub Pages.
 
-Kamera diproses di perangkat. Skor disimpan di browser masing-masing. Kalibrasi hanya disimpan selama halaman masih terbuka.
+Kamera diproses di perangkat. Skor disimpan di browser masing-masing.
+
+## Aplikasi desktop
+
+Workflow `.github/workflows/desktop.yml` membuat installer Windows (`.exe` installer + portable), macOS (`.dmg`), dan Linux (`.AppImage`). Jalankan lewat **Actions → Build desktop app → Run workflow**, atau push tag `v*` untuk melampirkannya ke GitHub Release. Workflow ini membutuhkan izin `contents: write` untuk membuat release. Kalibrasi hanya disimpan selama halaman masih terbuka.
 
 Panduan resmi: https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages

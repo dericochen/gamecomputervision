@@ -1,46 +1,103 @@
 # AI Hand Battle
 
-Game kamera 60 detik dengan bidik, energy blast, shield, dan nova. Kamera diproses di perangkat, tanpa merekam atau mengunggah video.
+Game kamera 60 detik dengan bidik, energy blast, shield, nova, boss, dan power-up. Kamera diproses di perangkat, tanpa merekam atau mengunggah video. Tersedia sebagai **aplikasi desktop** (Windows, macOS, Linux) dan sebagai situs GitHub Pages.
 
-## GitHub Pages
+## Aplikasi desktop
 
-Konfigurasi deploy sudah ada di `.github/workflows/pages.yml`; panduan ada di [DEPLOY_GITHUB.md](DEPLOY_GITHUB.md). Folder situs: `dist`. Tidak perlu API key atau proses build. Jalankan `npm test` untuk pemeriksaan sebelum deploy.
+**Download:** buka tab **Actions → Build desktop app → Run workflow** di GitHub. Setelah selesai, unduh artefak:
 
-## Gesture update v3
+- `ai-hand-battle-win`: `AI-Hand-Battle-Setup-x.y.z.exe` (installer) dan `AI-Hand-Battle-Portable-x.y.z.exe` (langsung jalan, cocok untuk laptop booth)
+- `ai-hand-battle-mac`: `.dmg`
+- `ai-hand-battle-linux`: `.AppImage`
 
-- Pengenal gestur terlatih membedakan telunjuk, telapak terbuka, dan kepalan. Bentuk yang belum jelas tetap dapat menggerakkan bidikan tanpa memicu aksi khusus.
-- Tes kamera menampilkan reticle, sasaran latihan, nama gestur, dan indikator empat gerakan sebelum ronde dimulai.
-- **Kalibrasi 4 gerakan** menyesuaikan bentuk tangan. Setiap langkah memberi waktu persiapan 2 detik dan mengambil sampel selama 1,2 detik. Gerakan yang tidak sesuai, terlalu mirip, atau tidak stabil perlu diulang. Kalibrasi aktif setelah semua langkah berhasil, tersimpan dalam memori halaman saja, dan bisa direset.
-- Serangan memerlukan gestur stabil. Melepas jepitan menghentikan tembakan; bentuk tidak jelas tidak melepaskan nova. Nova dilepas setelah telapak/bidik/jepit yang valid muncul.
-- Bidikan memakai area kamera yang lebih nyaman, dengan penghalusan gerak dan posisi tetap saat jari dilipat untuk menembak.
+Push tag `v*` (misalnya `v4.0.0`) juga akan melampirkan file ini ke GitHub Release.
 
-## Controls
+Build belum ditandatangani (unsigned):
+- Windows SmartScreen: pilih *More info → Run anyway*.
+- macOS: klik kanan aplikasi lalu pilih *Open*.
 
-- Raise the aiming hand first. Index finger: aim. Pinch thumb and index: repeated energy blast. The reticle stays anchored when the finger curls, and follows palm movement while pinched. Every shot uses the displayed reticle position.
-- Open palm: shield. A second hand can shield while the first fires. Shield energy drains while held, locks at empty, and must be released to recover to 25 energy before reuse.
-- Closed fist for 1.5 seconds, then release: arena-wide nova. Cooldown: 5 seconds.
-- Training: pointer or arrow keys to aim, click/Enter to fire, S to shield, hold Space and release for nova. Touch controls are available below the arena.
+**Menjalankan dari source** (Node.js 22+):
 
-Missing hands freeze play and countdown immediately. Tracking results older than 350 ms also freeze play. Interruptions exceeding 650 ms display a pause screen; stable reacquisition is required for automatic continuation. Switching away from the page pauses the round without automatic background resumption. Pause clears charge and inputs; release a pinch/fist before attacking again. Camera tracks stop on returning to the menu or leaving the page.
+```sh
+npm install
+npm start          # buka aplikasi
+npm run dist:win   # atau dist:mac / dist:linux, hasil di folder release/
+```
 
-Daily top ten scores are stored only in this browser's localStorage, with separate camera/training lists. They are not shared between devices. No fake player scores are seeded. Sound is synthesized locally and opt-in.
+Kelebihan aplikasi dibanding versi website:
+- Berjalan offline, dan kamera diizinkan otomatis untuk game ini saja.
+- Pelacak tangan memakai GPU, dengan CPU sebagai cadangan.
+- Tidak ada throttling di background, dan layar tidak tidur selama aplikasi terbuka.
+- Langsung masuk **Mode panggung** (arena layar penuh). Suara aktif sejak awal.
 
-## Implementation
+## Main di keramaian / booth
 
-Static HTML/CSS/JS with Canvas rendering. MediaPipe Tasks Vision 0.10.21 and the Gesture Recognizer float16 v1 model are bundled under `dist/vendor`. Inference normally runs in a classic Web Worker, so MediaPipe's WASM script loader can use importScripts. Tracking is throttled to at most 20 requests/second and allows one frame in flight. Unsupported worker/bitmap capabilities, repeated bitmap errors, worker failures, or timeouts trigger a throttled main-thread fallback. Two hands and 21 landmarks per hand are supported. World-space geometry is used when provided, with aspect-corrected image coordinates as fallback. Stable hand identities avoid swapping controllers when result order changes. Telemetry shows observed inference timing and tracking rate.
+- **Pemain dikunci.** Pemain adalah orang yang tangannya paling dekat dengan kamera.
+  - Tangan penonton di belakang ditampilkan abu-abu dengan label `DIABAIKAN`. Tangan ini tidak bisa membidik, menembak, membuka shield, atau mengisi nova.
+  - Pelacak membaca hingga 4 tangan, jadi penonton tidak "merebut slot" tangan pemain.
+- **Tangan kedua pemain** tetap bisa memakai shield. Syaratnya, ukurannya mirip tangan pertama dan masih dalam jangkauan lengan.
+- **Selama ronde**, penonton tidak bisa mengambil alih. Kalau pemain keluar dari kamera, game dijeda sampai pemain (atau orang lain yang sama dekatnya) kembali.
+- **Tanpa sentuh:** tahan ✋ telapak terbuka 2 detik di layar tes untuk mulai. Di layar hasil, tahan lagi untuk pemain berikutnya.
+- **Mode panggung:** arena memenuhi layar dan menampilkan Top 5 hari ini. Panel samping disembunyikan. Tombol *Mode halaman* mengembalikan tampilan biasa.
+- Leaderboard bisa direset dari panel *Top players*.
 
-Runtime dependency and model sources:
+## Gameplay
 
+- **Wave 1 (0–20 dtk):** VIRUS dan BUG yang cepat dan zig-zag.
+- **Wave 2 (20–40 dtk):** muncul TROJAN berlapis baja (3 HP) dan WORM yang membelah jadi dua BUG.
+- **Wave 3 (40–60 dtk):** semua musuh, plus **BOSS MEGA VIRUS** pada detik 42.
+  - Boss punya 30 HP dan menembakkan BUG. Nova memberi 8 damage ke boss.
+  - Mengalahkan boss memberi +3000 poin.
+- **Bonus emas** melintas di atas layar: +400 poin, dan pasti menjatuhkan power-up.
+- **Power-up** (tembak ikonnya):
+  - ⚡ Rapid fire
+  - ✦ Chain blast: mengenai 2 musuh terdekat
+  - ✚ Core repair
+  - ◈ Shield penuh
+- **FEVER ×2:** setiap combo 12. Skor dobel dan tembakan cepat selama 8 detik.
+- **Hasil ronde:** grade S/A/B/C/D, akurasi, peringkat harian, dan penanda rekor baru. 10 detik terakhir ditandai hitungan mundur.
+
+## Kontrol
+
+- **Telunjuk:** bidik.
+- **Jepit ibu jari + telunjuk:** energy blast berulang.
+- **Telapak terbuka:** shield, termasuk dengan tangan kedua.
+  - Energi shield habis kalau ditahan terus.
+  - Lepas telapak untuk mengisi ulang sampai 25 sebelum bisa dipakai lagi.
+- **Kepalan 1,5 detik lalu buka:** nova ke seluruh arena. Cooldown 5 detik.
+- **Latihan mouse:**
+  - Bidik: mouse atau tombol panah.
+  - Tembak: klik atau Enter.
+  - Shield: S.
+  - Nova: tahan lalu lepas Spasi.
+  - Esc: jeda.
+
+**Kalibrasi 4 gerakan** menyesuaikan pengenal gestur dengan bentuk tangan pemain. Kalibrasi hanya berlaku selama sesi.
+
+## Implementasi
+
+- HTML, CSS, dan JS statis dengan Canvas. MediaPipe Tasks Vision 0.10.21 dan model Gesture Recognizer float16 v1 dibundel di `dist/vendor`.
+- Inferensi berjalan di Web Worker dengan delegate GPU, dan beralih ke CPU kalau GPU gagal.
+  - Frame diperkecil ke lebar 960 px sebelum dikirim ke worker.
+  - Laju tracking menyesuaikan kecepatan perangkat, maksimal ±30/detik, dengan satu frame dalam proses.
+- Kalau worker gagal, game memakai fallback di main thread.
+- Penulisan DOM per frame hanya terjadi saat nilainya berubah. Latar statis dirender sekali. Game loop tetap berjalan walaupun satu frame error.
+- `electron/main.cjs` menyajikan `dist/` lewat origin privat `app://arena`.
+  - Origin ini aman (secure), sehingga kamera, worker, WASM, dan ES module berjalan seperti di website HTTPS.
+  - Halaman tidak punya akses Node.js (`contextIsolation`, `sandbox`).
+
+Sumber dependensi:
 - https://www.npmjs.com/package/@mediapipe/tasks-vision/v/0.10.21
-- https://storage.googleapis.com/mediapipe-models/gesture_recognizer/gesture_recognizer/float16/1/gesture_recognizer.task
 - https://ai.google.dev/edge/mediapipe/solutions/vision/gesture_recognizer/web_js
 
-MediaPipe is licensed under Apache 2.0. Google Fonts load optional typefaces; system fonts are the fallback.
+## GitHub Pages dan verifikasi
 
-## Verification
+Deploy website lewat `.github/workflows/pages.yml`; lihat [DEPLOY_GITHUB.md](DEPLOY_GITHUB.md).
 
-Run `npm test` with Node.js 22+. It checks JavaScript syntax, bundled assets, baseline scoring/storage flows, and 44 regression cases: 32 synthetic game-state/gesture/calibration cases plus 12 replays of actual MediaPipe inference on Google's public sample photos. The pointing pose is recognized in original, mirrored, and rotated samples; unrelated gestures do not activate attacks or shields. Fixture provenance and limits are documented in `scripts/fixtures/README.md`.
+`npm test` (tanpa `npm install`) memeriksa:
+- sintaks,
+- aset,
+- alur skor dan leaderboard,
+- 44 kasus regresi, termasuk 12 replay inferensi MediaPipe asli. Detail fixture ada di `scripts/fixtures/README.md`.
 
-The real-photo inference ran on CPU with MediaPipe Python 1.0.1 using the same bundled model asset. It does not substitute for live webcam, browser-rendering, or performance testing. Real-video pinch accuracy and behavior on the player's actual camera remain unverified; a physical webcam and supported Sites browser preview were unavailable. The app provides visible practice and optional calibration for that final device check.
-
-Optional read-only WebMCP tool `read_arena_state` registers only when the browser exposes document.modelContext. No supported WebMCP browser context was available for validation.
+Akurasi webcam langsung dan performa di perangkat pemain tetap perlu dicoba di perangkat aslinya.
