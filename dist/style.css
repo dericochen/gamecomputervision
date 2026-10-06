@@ -74,3 +74,8 @@ body.stage{background:#000;overflow:hidden}
 .stage .stage-board .board-row{font-size:clamp(14px,1.1vw,20px)}
 .stage .setup-panel{position:absolute;left:16px;bottom:16px;width:min(560px,46vw);max-height:calc(100vh - 32px);overflow:auto;background:#101a24ee;border:1px solid var(--line);z-index:6}
 @media(prefers-reduced-motion:reduce){#clock.urgent{animation:none}}
+
+/* v5: shooting assist toggle. */
+.assist-row{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin-top:14px}
+.assist-row>span{font-size:12px;color:var(--muted);line-height:1.5;flex:1;min-width:160px}
+#autofire-toggle.on{border-color:var(--cyan);color:var(--cyan);background:#18352e}

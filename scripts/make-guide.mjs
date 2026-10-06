@@ -202,7 +202,7 @@ vee(pdf,520,52,0.5,'cheer');
 
 const moves=[
  ['point','Bidik','Telunjuk tegak, tiga jari dilipat. Geser tangan untuk menggerakkan lingkaran sasaran.',C.cyanDark],
- ['pinch','Energy Blast','Sentuhkan ibu jari ke telunjuk (seperti mencubit). Tahan untuk menembak terus-menerus.',C.orange],
+ ['pinch','Energy Blast','Tempelkan ujung ibu jari ke ujung telunjuk; jari lain bebas. Tahan untuk menembak. Susah? Nyalakan Tembak otomatis.',C.orange],
  ['palm','Shield','Buka kelima jari. Perisai menyala selama energi ada. Lepas telapak untuk mengisi ulang.',C.blue],
  ['fist','Nova','Kepalkan tangan 1,5 detik sampai READY, lalu buka telapak untuk melepas ledakan ke seluruh arena.',C.purple],
 ];
