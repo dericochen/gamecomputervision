@@ -103,11 +103,6 @@ progress::-webkit-progress-value{background:var(--orange);border-radius:99px}pro
 .arena-footer{display:flex;gap:14px;align-items:center;padding:14px 6px 0;font-size:14px}
 .arena-footer>span{background:var(--orange);color:var(--ink);border:3px solid var(--ink);border-radius:999px;padding:2px 12px;font:700 13px var(--display);white-space:nowrap}
 .arena-footer p{margin:0;color:var(--muted)}
-.demo-controls{display:flex;gap:10px;flex-wrap:wrap;align-items:center;padding:12px 0}
-.demo-controls p{margin:0;flex:1;color:var(--muted);font-size:14px}
-.demo-controls button{touch-action:none;user-select:none;min-height:46px;min-width:110px;background:#fff;color:var(--ink);border:3px solid var(--ink);border-radius:14px;box-shadow:0 4px 0 var(--ink);font:700 15px var(--display)}
-.demo-controls button.held{background:var(--mint);transform:translateY(3px);box-shadow:0 1px 0 var(--ink)}
-.demo-controls kbd{font:700 12px var(--body);opacity:.7}
 
 /* setup / warm-up panel */
 .setup-panel{margin-top:16px;padding:22px;background:var(--panel);border:4px solid var(--ink);border-radius:24px;box-shadow:0 6px 0 var(--ink)}
@@ -158,9 +153,6 @@ progress::-webkit-progress-value{background:var(--orange);border-radius:99px}pro
 .gesture-readout p{margin:4px 0 0;font-size:13px;color:var(--muted)}
 .hands-line{margin:10px 0 0;font-size:14px;color:var(--muted)}.hands-line b{color:#fff}
 .tech{margin-top:10px}.tech dl{margin:8px 0 0}.tech dl>div{display:flex;justify-content:space-between;font-size:13px;margin:4px 0}.tech dt{color:var(--muted)}.tech dd{margin:0}
-.board-tabs{display:flex;gap:6px;margin:12px 0 4px}
-.board-tabs button{flex:1;background:#ffffff1a;border:3px solid var(--ink);border-radius:999px;padding:5px;font:600 14px var(--display);color:var(--muted)}
-.board-tabs button.selected{background:var(--yellow);color:var(--ink)}
 .empty{font-size:14px;color:var(--muted);text-align:center;padding:14px 0}
 .board-row{display:grid;grid-template-columns:30px 1fr auto;gap:8px;align-items:center;padding:8px 0;border-bottom:2px dashed var(--line);font-weight:700}
 .board-row .rank{display:grid;place-items:center;width:26px;height:26px;border-radius:50%;background:#ffffff1f;font:700 12px var(--display)}
@@ -178,7 +170,7 @@ footer p{margin:0}
 
 /* Stage mode: arena fills the screen for spectators */
 body.stage{background:#000;overflow:hidden}
-.stage .header,.stage .instructions,.stage .side-col,.stage footer,.stage .arena-footer,.stage .demo-controls{display:none!important}
+.stage .header,.stage .instructions,.stage .side-col,.stage footer,.stage .arena-footer{display:none!important}
 .stage main{max-width:none;padding:0}.stage .workspace{display:block}
 .stage .game-col{position:relative;height:100vh;display:flex;align-items:center;justify-content:center}
 .stage .arena,.stage .arena.is-setup{width:min(100vw,177.78vh);height:auto;min-height:0;aspect-ratio:16/9;border:0;border-radius:0;box-shadow:none}
@@ -199,3 +191,5 @@ body.stage{background:#000;overflow:hidden}
 .card.points strong.minus{color:var(--pink)}
 .start-content p b{color:var(--pink)}
 .m3{background:#ffb3c7}
+
+#board-list{margin-top:8px}

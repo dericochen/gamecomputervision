@@ -5,7 +5,7 @@
 <meta name="theme-color" content="#1c2a78"><title>Hand Battle — Selamatkan Kampus!</title>
 <meta name="description" content="Game kamera seru: arahkan tanganmu, tembak virus, lindungi markas. Tanpa stik, tanpa sentuh.">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%23ff8a1f'/%3E%3Ccircle cx='16' cy='16' r='8' fill='%23fff' stroke='%231b1340' stroke-width='2.5'/%3E%3Ccircle cx='16' cy='16' r='3' fill='%231b1340'/%3E%3C/svg%3E">
-<link rel="stylesheet" href="style.css?v=6">
+<link rel="stylesheet" href="style.css?v=7">
 </head>
 <body>
 <header class="header">
@@ -16,7 +16,7 @@
 <div class="workspace">
 <section class="game-col" aria-label="Arena permainan">
 <div class="arena" id="arena">
-<canvas id="game" width="1280" height="720" tabindex="0" aria-label="Arena Hand Battle. Latihan mouse: arahkan kursor ke virus untuk menembak otomatis, hindari bom, S untuk perisai."></canvas>
+<canvas id="game" width="1280" height="720" tabindex="0" aria-label="Arena Hand Battle. Arahkan telunjuk ke virus untuk menembak otomatis, hindari bom, buka telapak untuk perisai."></canvas>
 <video id="camera" autoplay playsinline muted hidden></video>
 <div class="hud">
  <div class="hud-box"><span class="hud-label">SKOR</span><strong id="score">00000</strong><span id="multiplier" class="multiplier"></span></div>
@@ -28,7 +28,7 @@
   <span class="sticker">Tanpa stik · tanpa sentuh</span>
   <h2>Arahkan.<br><span>Tembak.</span> Menang!</h2>
   <p>Virus menyerbu kampus! Arahkan telunjukmu ke virus — tembakan keluar sendiri. Hati-hati: jangan tembak <b>bom</b>, poinmu bisa berkurang! Buka telapak untuk perisai.</p>
-  <div class="start-actions"><button class="primary big" id="camera-start">▶ Main pakai kamera</button><button class="secondary" id="demo-start">Latihan pakai mouse</button></div>
+  <div class="start-actions"><button class="primary big" id="camera-start">▶ Main sekarang</button></div>
   <p class="small-note">Kamera hanya membaca gerakan tangan di perangkat ini. Tidak direkam.</p>
  </div>
  <div class="start-mascot" aria-hidden="true"><span class="blob b1"></span><span class="blob b2"></span><span class="blob b3"></span></div>
@@ -69,7 +69,6 @@
  </details>
 </section>
 <div class="arena-footer"><span id="mode-label">MODE KAMERA</span><p id="status" role="status">Siap saat kamu siap.</p></div>
-<div class="demo-controls hidden" id="demo-controls"><p>Arahkan kursor ke virus — tembakan otomatis. Jangan diamkan kursor di atas bom!</p><button id="demo-shield">Perisai <kbd>S</kbd></button></div>
 <section class="instructions"><h2>Cara main</h2><div class="gesture-grid">
  <div class="move m1"><span class="gesture-icon">☝</span><h3>Bidik &amp; tembak</h3><p>Arahkan telunjuk. Saat lingkaran menyentuh virus, tembakan keluar sendiri.</p></div>
  <div class="move m2"><span class="gesture-icon">✋</span><h3>Perisai</h3><p>Buka telapak (boleh tangan kedua). Turunkan untuk mengisi energinya.</p></div>
@@ -84,8 +83,7 @@
   <details class="tech"><summary>Info teknis</summary><dl><div><dt>Titik tangan</dt><dd id="nodes">—</dd></div><div><dt>Kecepatan baca</dt><dd id="fps">—</dd></div><div><dt>Waktu proses</dt><dd id="latency">—</dd></div><div><dt>Mesin</dt><dd id="accel">—</dd></div></dl></details>
  </section>
  <section class="card leaderboard"><div class="card-head"><h2>🏆 Papan juara</h2><span id="board-date"></span></div>
-  <div class="board-tabs" role="group" aria-label="Jenis skor"><button id="board-camera" class="selected" aria-pressed="true">Kamera</button><button id="board-demo" aria-pressed="false">Latihan</button></div>
-  <div id="board-list"><p class="empty">Belum ada juara.<br>Jadilah yang pertama!</p></div>
+    <div id="board-list"><p class="empty">Belum ada juara.<br>Jadilah yang pertama!</p></div>
   <p class="board-note">Skor hari ini, tersimpan di perangkat ini. <button id="board-reset" class="link-btn">Reset</button></p>
  </section>
  <section class="card points"><h2>Poin</h2>
@@ -94,5 +92,5 @@
 </aside>
 </div>
 <footer><span>Hand Battle</span><p>Dibuat untuk dimainkan rame-rame 🎉</p></footer>
-</main><script type="module" src="app.js?v=6"></script>
+</main><script type="module" src="app.js?v=7"></script>
 </body></html>

@@ -7,7 +7,7 @@ function setText(id,value){value=String(value);if(textCache.get(id)!==value){tex
 function setValue(id,value){value=Math.round(value*100)/100;if(valueCache.get(id)!==value){valueCache.set(id,value);$(id).value=value}}
 const canvas=$('game'),ctx=canvas.getContext('2d'),map=$('hand-map'),mctx=map.getContext('2d'),video=$('camera');
 const W=1280,H=720,CORE_Y=H-78,labels={pinch:'BIDIK & TEMBAK',point:'BIDIK & TEMBAK',palm:'PERISAI AKTIF',fist:'BIDIK & TEMBAK',idle:'BIDIK & TEMBAK'};
-let state='menu',mode='camera',boardMode='camera',worker,stream,cameraReady=false,workerBusy=false,workerReady=false,session=0,initTimer,frameTimer,lastInference=0,lastVideoTime=-1,lastDetection=0,landmarks=[],trackingRates=[],last=performance.now(),now=last,elapsed=0,remaining=60,score=0,combo=0,maxCombo=0,hits=0,blocked=0,health=5,shield=100,lastShot=-1e6,spawnTimer=0,countdown=0,autoPaused=false,shielding=false,manualShield=false,manualFire=false,aim={x:640,y:390},hands=[],gesture='idle',enemies=[],particles=[],beams=[],floaters=[],powerups=[],saved=false,annUntil=0,annText='',sound=!!desktop,audio,keys=new Set(),roundCompleted=false;
+let state='menu',mode='camera',worker,stream,cameraReady=false,workerBusy=false,workerReady=false,session=0,initTimer,frameTimer,lastInference=0,lastVideoTime=-1,lastDetection=0,landmarks=[],trackingRates=[],last=performance.now(),now=last,elapsed=0,remaining=60,score=0,combo=0,maxCombo=0,hits=0,blocked=0,health=5,shield=100,lastShot=-1e6,spawnTimer=0,countdown=0,autoPaused=false,shielding=false,aim={x:640,y:390},hands=[],gesture='idle',enemies=[],particles=[],beams=[],floaters=[],powerups=[],saved=false,annUntil=0,annText='',sound=!!desktop,audio,roundCompleted=false;
 let bombsHit=0,feverUntil=0,rapidUntil=0,spreadUntil=0,shots=0,shotHits=0,bossSpawned=false,lastWave=1,lastBeep=null,shake=0,holdProgress=0,resultAt=0,inferenceAvg=30,delegateName='—',loopErrors=0;
 let stage=readStage();
 // Shooting is automatic: it fires only while the reticle is over an enemy or power-up.
@@ -23,7 +23,6 @@ const rand=(a,b)=>a+Math.random()*(b-a),clamp=(x,a,b)=>Math.min(b,Math.max(a,x))
 // numHands 4: spectators cannot crowd the player's hands out of the detector.
 const CROWD_HANDS=4;
 const handControls=new HandControls();
-const heldActions={fire:new Set(),shield:new Set()};
 let calibrationDraft=null,calibrationStep=0,calibrationRecording=null,latestControls=null;
 const triedGestures=new Set();
 const poseNames={point:'BIDIK',pinch:'BIDIK',palm:'PERISAI',fist:'BIDIK',idle:'BIDIK'};
@@ -67,7 +66,7 @@ function musicTick(){
  }
 }
 function overlays(id){for(const x of ['start-overlay','setup-overlay','pause-overlay','result-overlay'])show(x,x===id)}
-function setState(s){state=s;handControls.roundLock=mode==='camera'&&['playing','countdown','paused'].includes(s);$('arena').classList.toggle('is-setup',s==='setup');document.body?.classList.toggle('in-round',['playing','countdown','paused'].includes(s));show('pause',s==='playing'||s==='countdown');show('demo-controls',mode==='demo'&&['playing','countdown','paused'].includes(s));$('mode-label').textContent=mode==='demo'?'LATIHAN MOUSE':'MODE KAMERA';holdProgress=0}
+function setState(s){state=s;handControls.roundLock=mode==='camera'&&['playing','countdown','paused'].includes(s);$('arena').classList.toggle('is-setup',s==='setup');document.body?.classList.toggle('in-round',['playing','countdown','paused'].includes(s));show('pause',s==='playing'||s==='countdown');$('mode-label').textContent='MODE KAMERA';holdProgress=0}
 function stopCamera(){
  cancelCalibration();latestControls=null;
  session++;clearTimeout(initTimer);clearTimeout(frameTimer);worker?.terminate();worker=null;
@@ -79,7 +78,7 @@ function stopCamera(){
  setText('feed-status','KAMERA BELUM AKTIF');$('round-start').disabled=true;$('calibration-start').disabled=true;updateGestureFeedback(null);drawMap();
 }
 function cameraFailure(message){
- stopCamera();resetInputs();shielding=false;
+ stopCamera();shielding=false;
  $('setup-title').textContent='Kamera belum siap';$('setup-info').textContent=message;$('status').textContent=message;show('camera-retry');
  if(state!=='result'&&state!=='menu'){setState('setup');overlays('setup-overlay');announce('')}
 }
@@ -217,7 +216,7 @@ async function useMainTracker(generation){
  }catch(error){if(generation===session)cameraFailure('Pelacak tangan tidak dapat dimulai. Coba lagi, atau gunakan latihan mouse.')}
 }
 async function enableCamera(){
- stopCamera();resetInputs();mode='camera';setState('setup');overlays('setup-overlay');show('camera-retry',false);$('setup-title').textContent='Menyiapkan pelacak tangan';$('setup-info').textContent='Izinkan kamera. Model tangan sedang dimuat…';$('round-start').disabled=true;const generation=session;
+ stopCamera();mode='camera';setState('setup');overlays('setup-overlay');show('camera-retry',false);$('setup-title').textContent='Menyiapkan pelacak tangan';$('setup-info').textContent='Izinkan kamera. Model tangan sedang dimuat…';$('round-start').disabled=true;const generation=session;
  if(!navigator.mediaDevices?.getUserMedia){cameraFailure('Perangkat ini tidak mendukung kamera. Gunakan aplikasi desktop, Chrome, atau Edge.');return}
  try{
   const requested=await navigator.mediaDevices.getUserMedia({video:{width:{ideal:1280},height:{ideal:720},facingMode:'user',frameRate:{ideal:30}},audio:false});
@@ -262,17 +261,16 @@ async function requestFrame(){
 function resetRoundEffects(){enemies=[];particles=[];beams=[];floaters=[];powerups=[];feverUntil=rapidUntil=spreadUntil=0;shots=shotHits=bombsHit=0;bossSpawned=false;lastWave=1;lastBeep=null;shake=0;holdProgress=0;$('clock').classList.remove('urgent')}
 function startRound(){
  if(mode==='camera'&&(!trackingFresh()||calibrationDraft))return;
- resetInputs();score=combo=maxCombo=hits=blocked=0;health=5;shield=100;shieldLocked=false;gesturesArmed=true;
+ score=combo=maxCombo=hits=blocked=0;health=5;shield=100;shieldLocked=false;gesturesArmed=true;
  elapsed=0;remaining=60;spawnTimer=.2;countdown=3;resetRoundEffects();shielding=false;
- if(mode==='demo')aim={x:640,y:390};saved=false;roundCompleted=false;lastShot=-1e6;autoPaused=false;overlays(null);setState('countdown');
- $('status').textContent=mode==='camera'?'Arahkan lingkaran ke virus, tembakan keluar sendiri. Tangan kedua boleh membuka perisai.':'Latihan mouse: arahkan kursor ke virus. Skor dipisah dari mode kamera.';
- canvas.focus({preventScroll:true});$('save-info').textContent='';$('save-score').reset();$('player-name').setCustomValidity('');show('save-score');updateHUD();
+ saved=false;roundCompleted=false;lastShot=-1e6;autoPaused=false;overlays(null);setState('countdown');
+ $('status').textContent='Arahkan lingkaran ke virus, tembakan keluar sendiri. Tangan kedua boleh membuka perisai.';
+ $('save-info').textContent='';$('save-score').reset();$('player-name').setCustomValidity('');show('save-score');updateHUD();
 }
-function enterDemo(){stopCamera();mode='demo';boardMode='demo';renderBoard();startRound()}
 function pauseGame(auto=false){
  if(state==='paused'){if(!auto){autoPaused=false;show('resume');$('pause-info').textContent='Waktu berhenti sampai kamu melanjutkan.'}return}
  if(!['playing','countdown'].includes(state))return;
- autoPaused=auto;setState('paused');overlays('pause-overlay');resetInputs();shielding=false;gesturesArmed=false;
+ autoPaused=auto;setState('paused');overlays('pause-overlay');shielding=false;gesturesArmed=false;
  $('pause-reason').textContent=auto?'TANGAN HILANG':'RONDE DIJEDA';$('pause-title').textContent=auto?'Tunjukkan tanganmu lagi.':'Ambil napas dulu.';
  $('pause-info').textContent=auto?'Waktu dan ancaman berhenti. Pemain utama perlu berdiri paling dekat dengan kamera.':'Waktu berhenti sampai kamu melanjutkan.';show('resume',!auto);
  if(!auto)$('resume').focus({preventScroll:true});
@@ -280,10 +278,10 @@ function pauseGame(auto=false){
 function resumeGame(){
  if(state!=='paused'||document.hidden)return;
  if(mode==='camera'&&!trackingFresh()){$('pause-info').textContent='Tunjukkan tangan ke kamera untuk melanjutkan.';return}
- autoPaused=false;resetInputs();setState(countdown>0?'countdown':'playing');overlays(null);canvas.focus({preventScroll:true});
+ autoPaused=false;setState(countdown>0?'countdown':'playing');overlays(null);canvas.focus({preventScroll:true});
  if(mode==='camera')$('status').textContent='Lanjut! Arahkan lagi ke virus.';
 }
-function goHome(){stopCamera();resetInputs();mode='camera';boardMode='camera';setState('menu');overlays('start-overlay');show('demo-controls',false);$('mode-label').textContent='MODE KAMERA';$('status').textContent='Siap saat kamu siap.';announce('',0);annUntil=0;resetRoundEffects();score=0;combo=0;health=5;remaining=60;shield=100;shieldLocked=false;shielding=false;roundCompleted=false;saved=false;gesture='idle';renderBoard();updateHUD()}
+function goHome(){stopCamera();mode='camera';setState('menu');overlays('start-overlay');$('mode-label').textContent='MODE KAMERA';$('status').textContent='Siap saat kamu siap.';announce('',0);annUntil=0;resetRoundEffects();score=0;combo=0;health=5;remaining=60;shield=100;shieldLocked=false;shielding=false;roundCompleted=false;saved=false;gesture='idle';renderBoard();updateHUD()}
 function burst(x,y,color,n=20,speed=330){n=Math.min(n,Math.max(0,700-particles.length));for(let i=0;i<n;i++){const a=rand(0,Math.PI*2),v=rand(80,speed);particles.push({x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,life:rand(.3,.7),color})}}
 const kindOf=e=>KINDS[e.kind]??KINDS.VIRUS;
 function makeEnemy(kind,x,y,extra={}){const k=KINDS[kind],wave=waveAt(elapsed);return {x,y,startX:x,v:rand(...k.v)+(k.boss||k.gold?0:wave*17),r:rand(...k.r),spin:rand(0,6.28),age:0,dead:false,kind,hp:k.hp,maxHp:k.hp,sway:k.sway,flash:0,...extra}}
@@ -343,15 +341,15 @@ function updateHUD(){
  setText('multiplier',[combo>=2?'COMBO ×'+combo:'',fever()?'FEVER ×2':''].filter(Boolean).join(' · '));
  const active=[now<rapidUntil?'⚡ '+Math.ceil((rapidUntil-now)/1000)+'s':'',now<spreadUntil?'✦ '+Math.ceil((spreadUntil-now)/1000)+'s':''].filter(Boolean).join('  ');
  setText('powerup-status',active);
- setText('gesture-display',shieldLocked?'PERISAI HABIS · TURUNKAN TELAPAK':mode==='demo'?(shielding?'PERISAI AKTIF':'ARAHKAN KURSOR'):(cameraShield&&!['palm'].includes(gesture)&&shielding?'TEMBAK + PERISAI':(!trackingFresh()?'TUNJUKKAN TANGAN':labels[gesture]??'BIDIK & TEMBAK')));
+ setText('gesture-display',shieldLocked?'PERISAI HABIS · TURUNKAN TELAPAK':(cameraShield&&!['palm'].includes(gesture)&&shielding?'TEMBAK + PERISAI':(!trackingFresh()?'TUNJUKKAN TANGAN':labels[gesture]??'BIDIK & TEMBAK')));
 }
 // A flawless bot reaches ~60k; human grades are spread below that.
 function gradeFor(points){return points>=30000?'S':points>=18000?'A':points>=9000?'B':points>=3000?'C':'D'}
 function finish(){
- roundCompleted=true;resetInputs();shielding=false;
+ roundCompleted=true;shielding=false;
  const board=readBoard(mode),rank=board.filter(r=>r.score>=score).length+1;
  setState('result');overlays('result-overlay');resultAt=now;
- $('result-heading').textContent=mode==='demo'?'LATIHAN SELESAI':health<=0?'MARKAS JEBOL!':'RONDE SELESAI';$('result-score').textContent=score.toLocaleString('id-ID');
+ $('result-heading').textContent=health<=0?'MARKAS JEBOL!':'RONDE SELESAI';$('result-score').textContent=score.toLocaleString('id-ID');
  $('result-grade').textContent=gradeFor(score);$('result-grade').className='grade grade-'+gradeFor(score).toLowerCase();
  $('result-rank').textContent=score>0&&board.length&&score>board[0].score?'🏆 REKOR BARU HARI INI!':rank<=10&&score>0?'Peringkat #'+rank+' hari ini':'';
  const accuracy=shots?Math.round(shotHits/shots*100):0;
@@ -374,8 +372,7 @@ function update(dt){
  remaining=Math.max(0,remaining-dt);elapsed=60-remaining;
  const wave=waveAt(elapsed);if(wave!==lastWave){lastWave=wave;announce(wave===2?'BABAK 2':'BABAK TERAKHIR',1.6);tone(330,.3,'square',.05)}
  const sec=Math.ceil(remaining);if(sec<=10&&sec>0&&sec!==lastBeep){lastBeep=sec;$('clock').classList.add('urgent');tone(sec<=3?990:660,.07,'square',.04)}
- if(keys.has('ArrowLeft'))aim.x-=dt*650;if(keys.has('ArrowRight'))aim.x+=dt*650;if(keys.has('ArrowUp'))aim.y-=dt*500;if(keys.has('ArrowDown'))aim.y+=dt*500;aim.x=clamp(aim.x,20,W-20);aim.y=clamp(aim.y,100,H-80);
- const wantsShield=mode==='demo'?manualShield:cameraShield;
+ const wantsShield=cameraShield;
  if(wantsShield){
   if(shield<=0)shieldLocked=true;
   shielding=!shieldLocked&&shield>0;
@@ -383,13 +380,13 @@ function update(dt){
  }else{shielding=false;shield=Math.min(100,shield+22*dt);if(shield>=25)shieldLocked=false}
  // Just aim: any pose except the shield (palm) shoots what is under the ring.
  const onTarget=targetUnderAim();
- if(mode==='demo'?(manualFire||onTarget):gesturesArmed&&!attackPose()&&onTarget)fire();
+ if(gesturesArmed&&!attackPose()&&onTarget)fire();
  if(!bossSpawned&&elapsed>=42)spawnBoss();
  spawnTimer-=dt;if(spawnTimer<=0){spawn();spawnTimer=Math.max(.48,1.3-elapsed*.012)*(bossAlive()?1.5:1)}
  const spawned=[];
  for(const e of enemies){
   if(e.dead)continue;e.age=(e.age??0)+dt;e.flash=Math.max(0,(e.flash??0)-dt);e.startX??=e.x;
-  if(e.kind==='BOMB'){e.y+=e.v*dt;e.x=e.startX+Math.sin(e.age*1.6)*(e.sway??28);const over=Math.hypot(e.x-aim.x,e.y-aim.y)<e.r+40&&(mode==='demo'||!attackPose());e.hover=over?(e.hover??0)+dt:0;if(e.y>CORE_Y){e.dead=true;burst(e.x,CORE_Y-6,'#8a8fb5',10,160);tone(180,.1,'sine',.03)}continue}
+  if(e.kind==='BOMB'){e.y+=e.v*dt;e.x=e.startX+Math.sin(e.age*1.6)*(e.sway??28);const over=Math.hypot(e.x-aim.x,e.y-aim.y)<e.r+40&&!attackPose();e.hover=over?(e.hover??0)+dt:0;if(e.y>CORE_Y){e.dead=true;burst(e.x,CORE_Y-6,'#8a8fb5',10,160);tone(180,.1,'sine',.03)}continue}
   if(e.kind==='GOLD'){e.x+=e.vx*dt;e.y=e.baseY+Math.sin(e.age*3)*20;e.spin+=dt*3;if(e.x<-60||e.x>W+60)e.dead=true;continue}
   if(e.kind==='BOSS'){e.y+=e.v*dt;e.x=W/2+Math.sin(e.age*.6)*260;e.shootTimer-=dt;if(e.shootTimer<=0&&e.y>40){e.shootTimer=2.2;spawned.push(makeEnemy('BUG',e.x,e.y+e.r,{r:15,mini:true,v:150,sway:40}))}}
   else{e.y+=e.v*dt;e.x=e.startX+Math.sin(e.age*1.8)*(e.sway??22)}
@@ -435,18 +432,78 @@ function getSky(){
  c.fillStyle=g;c.fillRect(0,0,W,H);
  return skyLayer=b;
 }
+// Campus backdrop. If dist/assets/campus.png exists (e.g. a real BINUS photo with a
+// transparent sky) it is used; otherwise a cartoon BINUS campus is drawn in code.
+const campusPhoto=typeof Image!=='undefined'?new Image():null;
+let campusLayer=null;
+// Photos with a plain white background get it removed so the sky shows through.
+function keyOutWhite(img){
+ const c=document.createElement('canvas');c.width=img.naturalWidth;c.height=img.naturalHeight;const x=c.getContext('2d');x.drawImage(img,0,0);
+ try{const d=x.getImageData(0,0,c.width,c.height),p=d.data;for(let i=0;i<p.length;i+=4){const m=Math.min(p[i],p[i+1],p[i+2]);if(m>225&&Math.max(p[i],p[i+1],p[i+2])-m<18)p[i+3]=Math.round(p[i+3]*Math.max(0,(250-m)/25))}x.putImageData(d,0,0)}catch{}
+ return c;
+}
+if(campusPhoto){campusPhoto.onload=()=>{try{campusLayer=keyOutWhite(campusPhoto)}catch{campusLayer=campusPhoto}backdrop=null};campusPhoto.onerror=()=>{};campusPhoto.src='assets/campus.png'}
+function drawTower(c,x,w,h,style){
+ const top=CORE_Y-h;
+ c.lineJoin='round';c.lineWidth=3;c.strokeStyle=OUTLINE;
+ if(style==='glass'){
+  const g=c.createLinearGradient(x,0,x+w,0);g.addColorStop(0,'#2a63d6');g.addColorStop(.5,'#5a9bff');g.addColorStop(1,'#1f4fb8');
+  c.fillStyle=g;c.fillRect(x,top,w,h);c.strokeRect(x,top,w,h);
+  c.strokeStyle='#ffffff55';c.lineWidth=1.5;c.beginPath();for(let lx=x+w/5;lx<x+w;lx+=w/5){c.moveTo(lx,top+6);c.lineTo(lx,CORE_Y)}for(let ly=top+14;ly<CORE_Y;ly+=14){c.moveTo(x+2,ly);c.lineTo(x+w-2,ly)}c.stroke();
+  c.fillStyle='#ffffff40';c.fillRect(x+4,top+4,w*.18,h-8);
+ }else{
+  c.fillStyle='#eef3fb';c.fillRect(x,top,w,h);c.strokeRect(x,top,w,h);
+  c.fillStyle='#3d7be8';c.fillRect(x+w*.38,top,w*.24,h);
+  c.fillStyle='#7d8fb3';for(let ly=top+10;ly<CORE_Y-6;ly+=11)for(let lx=x+5;lx<x+w-6;lx+=9)if(lx<x+w*.36||lx>x+w*.62)c.fillRect(lx,ly,5,6);
+  c.fillStyle='#2a63d6';c.fillRect(x-2,top-6,w+4,8);c.strokeRect(x-2,top-6,w+4,8);
+ }
+}
+function drawTrees(c,x0,x1,y){
+ for(let x=x0;x<x1;x+=34){const r=22+((x*13)%9);
+  c.beginPath();c.arc(x,y-r*.7,r,0,Math.PI*2);c.fillStyle=(x/34|0)%2?'#2f9e57':'#3cb769';c.fill();c.lineWidth=3;c.strokeStyle=OUTLINE;c.stroke();
+  c.beginPath();c.arc(x-r*.3,y-r*1.05,r*.35,0,Math.PI*2);c.fillStyle='#ffffff2a';c.fill()}
+}
+function drawCampus(c){
+ // flanking towers (back to front)
+ drawTower(c,150,52,250,'glass');drawTower(c,205,62,300,'res');drawTower(c,272,50,240,'res');drawTower(c,322,62,270,'glass');
+ drawTower(c,905,60,280,'glass');drawTower(c,968,70,330,'res');drawTower(c,1042,52,250,'glass');drawTower(c,1097,44,200,'res');
+ // main BINUS building: front face + darker side face for depth
+ const L=420,R=880,T=CORE_Y-310,B=CORE_Y-40;
+ c.lineJoin='round';c.lineWidth=4;c.strokeStyle=OUTLINE;
+ c.beginPath();c.moveTo(L-46,T+34);c.lineTo(L,T);c.lineTo(L,B);c.lineTo(L-46,B);c.closePath();c.fillStyle='#173f9e';c.fill();c.stroke();
+ const g=c.createLinearGradient(L,T,R,B);g.addColorStop(0,'#3b82f6');g.addColorStop(.6,'#2563eb');g.addColorStop(1,'#1d4ed8');
+ c.beginPath();c.moveTo(L,T);c.lineTo(R,T+44);c.lineTo(R,B);c.lineTo(L,B);c.closePath();c.fillStyle=g;c.fill();c.stroke();
+ // white horizontal fins like the photo
+ c.fillStyle='#ffffffd9';
+ const fins=[[.06,.12,.12],[.2,.1,.2],[.36,.08,.12],[.5,.14,.08],[.1,.3,.1],[.26,.27,.14],[.46,.3,.09],[.04,.48,.08],[.18,.5,.16],[.38,.52,.1],[.6,.6,.12],[.08,.66,.14],[.28,.7,.1],[.46,.72,.16],[.66,.78,.1],[.14,.84,.1],[.36,.88,.14],[.58,.9,.08]];
+ for(const [fx,fy,fw] of fins){const x=L+(R-L)*fx,y=T+(B-T)*fy+44*fx;c.save();c.translate(x,y);c.rotate(Math.atan2(44,R-L));c.fillRect(0,0,(R-L)*fw,6);c.restore()}
+ // BINUS sign band
+ c.save();c.translate(L+(R-L)*.56,T+(B-T)*.22+44*.56);c.rotate(Math.atan2(44,R-L));
+ c.fillStyle='#ffffff';c.strokeStyle=OUTLINE;c.lineWidth=4;c.beginPath();c.roundRect?c.roundRect(0,0,190,64,10):c.rect(0,0,190,64);c.fill();c.stroke();
+ c.font=`700 44px ${FONT}`;c.textAlign='center';c.textBaseline='middle';c.fillStyle='#1d4ed8';c.fillText('BINUS',95,35);
+ c.restore();
+ // glass podium at street level
+ c.fillStyle='#bfe3ff';c.fillRect(L-60,B,(R-L)+120,CORE_Y-B);c.strokeRect(L-60,B,(R-L)+120,CORE_Y-B);
+ c.strokeStyle='#5a8fd6';c.lineWidth=2;c.beginPath();for(let x=L-50;x<R+60;x+=18){c.moveTo(x,B+4);c.lineTo(x,CORE_Y-2)}c.stroke();
+ // side wings
+ c.lineWidth=3;c.strokeStyle=OUTLINE;c.fillStyle='#dbe9fb';c.fillRect(250,CORE_Y-70,130,70);c.strokeRect(250,CORE_Y-70,130,70);c.fillRect(890,CORE_Y-60,120,60);c.strokeRect(890,CORE_Y-60,120,60);
+ drawTrees(c,150,400,CORE_Y);drawTrees(c,900,1140,CORE_Y);
+ // blue swoosh ribbon hugging the campus
+ c.lineCap='round';
+ for(const [w,col,dy] of [[22,OUTLINE,0],[16,'#2563eb',0],[8,'#ffffff',-6],[5,'#7fe0ff',8]]){c.strokeStyle=col;c.lineWidth=w;c.beginPath();c.moveTo(90,CORE_Y-40+dy);c.bezierCurveTo(300,CORE_Y+12+dy,980,CORE_Y+12+dy,1190,CORE_Y-58+dy);c.stroke()}
+}
 function getBackdrop(){
  if(backdrop)return backdrop;
  const b=document.createElement('canvas');b.width=W;b.height=H;const c=b.getContext('2d');
- // soft clouds
  c.fillStyle='#ffffff14';
  for(const [x,y,s] of [[180,150,1],[520,95,.8],[930,170,1.2],[1150,90,.7],[360,300,.6]]){for(const [dx,dy,r] of [[0,0,46],[40,-14,38],[78,4,42],[38,16,40]]){c.beginPath();c.arc(x+dx*s,y+dy*s,r*s,0,Math.PI*2);c.fill()}}
- // campus skyline silhouette above the base
- const base=CORE_Y;c.fillStyle='#24206099';
- const blocks=[[0,70,90],[90,110,70],[160,60,120],[280,150,80],[360,90,110],[470,120,60],[530,175,95],[625,95,85],[710,140,120],[830,80,70],[900,160,100],[1000,105,90],[1090,130,75],[1165,85,115]];
- for(const [x,h,w] of blocks)c.fillRect(x,base-h,w,h);
- c.fillStyle='#ffd23f55';
- for(const [x,h,w] of blocks)for(let wy=base-h+14;wy<base-12;wy+=22)for(let wx=x+10;wx<x+w-12;wx+=20)if((wx*7+wy*3)%5<2)c.fillRect(wx,wy,8,10);
+ if(campusLayer){
+  // fit the photo to the arena width, resting on the base line
+  const iw=campusLayer.width||campusLayer.naturalWidth,ih=campusLayer.height||campusLayer.naturalHeight,scale=Math.min(W/iw,(CORE_Y-40)/ih)*1.05,w=iw*scale,h=ih*scale;
+  c.globalAlpha=.9;c.drawImage(campusLayer,(W-w)/2,CORE_Y-h+20,w,h);c.globalAlpha=1;
+ }else{c.globalAlpha=.88;drawCampus(c);c.globalAlpha=1}
+ // soft haze so falling viruses stay easy to see in front of the buildings
+ const haze=c.createLinearGradient(0,CORE_Y-340,0,CORE_Y);haze.addColorStop(0,'#1c2a7800');haze.addColorStop(1,'#1c2a7866');c.fillStyle=haze;c.fillRect(0,CORE_Y-340,W,340);
  return backdrop=b;
 }
 const roleColor={player:'#ffffff',partner:'#9be7ff',ignored:'#a7a3c9'};
@@ -546,7 +603,7 @@ function render(){
   for(const p of particles){ctx.globalAlpha=clamp(p.life*2,0,1);ctx.fillStyle=p.color;ctx.fillRect(p.x-2.5,p.y-2.5,5,5)}ctx.globalAlpha=1;
   for(const f of floaters){ctx.globalAlpha=clamp(f.life/.7,0,1);label(f.text,f.x,f.y,f.big?36:24,f.color??'#ffffff')}ctx.globalAlpha=1;
   // aiming ring: turns yellow and "locks" when something is in reach
-  const locked=state==='playing'&&targetUnderAim()&&(mode==='demo'||!attackPose());
+  const locked=state==='playing'&&targetUnderAim()&&!attackPose();
   const bomb=state==='playing'?bombUnderAim():null,danger=bomb?clamp(bomb.hover/BOMB_ARM,0,1):0;
   const color=bomb?'#ff5c8a':shielding?'#4be3a8':locked?'#ffd23f':'#ffffff',rr=locked?20+Math.sin(now/60)*2:26;
   circle(ctx,aim.x,aim.y,rr,OUTLINE,9);circle(ctx,aim.x,aim.y,rr,color,4.5);
@@ -572,65 +629,30 @@ function readBoard(kind){try{const rows=JSON.parse(localStorage.getItem(boardKey
 function boardRow(i,row){const el=document.createElement('div');el.className='board-row';for(const [cls,text] of [['rank',String(i+1).padStart(2,'0')],['name',row.name],['points',row.score.toLocaleString('id-ID')]]){const span=document.createElement('span');span.className=cls;span.textContent=text;el.append(span)}return el}
 function renderBoard(){
  $('board-date').textContent=new Intl.DateTimeFormat('id-ID',{day:'2-digit',month:'short'}).format(new Date());
- for(const kind of ['camera','demo']){$('board-'+kind).classList.toggle('selected',kind===boardMode);$('board-'+kind).setAttribute('aria-pressed',String(kind===boardMode))}
- const list=$('board-list');list.replaceChildren();const rows=readBoard(boardMode);
- if(!rows.length){const p=document.createElement('p');p.className='empty';p.textContent=boardMode==='demo'?'Belum ada skor latihan. Coba satu ronde.':'Arena belum punya juara. Jadilah pemain pertama.';list.append(p)}
+ const list=$('board-list');list.replaceChildren();const rows=readBoard('camera');
+ if(!rows.length){const p=document.createElement('p');p.className='empty';p.textContent='Belum ada juara. Jadilah yang pertama!';list.append(p)}
  for(const [i,row] of rows.entries())list.append(boardRow(i,row));
  const stageList=$('stage-board-list');stageList.replaceChildren();const top=readBoard('camera').slice(0,5);
  if(!top.length){const p=document.createElement('p');p.className='empty';p.textContent='Belum ada juara hari ini.';stageList.append(p)}
  for(const [i,row] of top.entries())stageList.append(boardRow(i,row));
 }
-$('save-score').addEventListener('submit',e=>{e.preventDefault();if(saved||!roundCompleted)return;const name=$('player-name').value.trim();if(!name){$('player-name').setCustomValidity('Masukkan nama pemain.');$('player-name').reportValidity();return}const rows=readBoard(mode);rows.push({name:name.slice(0,18),score});rows.sort((a,b)=>b.score-a.score);try{localStorage.setItem(boardKey(mode),JSON.stringify(rows.slice(0,10)));saved=true;show('save-score',false);$('save-info').textContent='Skor tersimpan di perangkat ini.';boardMode=mode;renderBoard()}catch{$('save-info').textContent='Skor belum tersimpan. Penyimpanan tidak tersedia.'}});
+$('save-score').addEventListener('submit',e=>{e.preventDefault();if(saved||!roundCompleted)return;const name=$('player-name').value.trim();if(!name){$('player-name').setCustomValidity('Masukkan nama pemain.');$('player-name').reportValidity();return}const rows=readBoard(mode);rows.push({name:name.slice(0,18),score});rows.sort((a,b)=>b.score-a.score);try{localStorage.setItem(boardKey(mode),JSON.stringify(rows.slice(0,10)));saved=true;show('save-score',false);$('save-info').textContent='Skor tersimpan di perangkat ini.';renderBoard()}catch{$('save-info').textContent='Skor belum tersimpan. Penyimpanan tidak tersedia.'}});
 $('player-name').addEventListener('input',()=> $('player-name').setCustomValidity(''));
 $('calibration-start').onclick=beginCalibration;$('calibration-capture').onclick=captureCalibration;$('calibration-cancel').onclick=()=>cancelCalibration(true);$('calibration-reset').onclick=()=>{handControls.setCalibration(null);cancelCalibration();$('calibration-status').textContent='Setelan standar aktif. Kalibrasi bisa diulang kapan saja.';show('calibration-reset',false);};
-$('camera-start').onclick=enableCamera;$('camera-retry').onclick=enableCamera;$('demo-start').onclick=enterDemo;$('round-start').onclick=startRound;$('setup-back').onclick=goHome;$('pause').onclick=()=>pauseGame();$('resume').onclick=resumeGame;$('exit-round').onclick=goHome;$('home').onclick=goHome;$('again').onclick=()=>{if(mode==='camera'&&!cameraReady){void enableCamera()}else if(mode==='camera'&&!trackingFresh()){setState('setup');overlays('setup-overlay');$('round-start').disabled=true;$('setup-title').textContent='Tunjukkan tanganmu kembali';$('setup-info').textContent='Setelah tangan terdeteksi, kamu bisa memulai ronde baru.'}else startRound()};
-for(const kind of ['camera','demo'])$('board-'+kind).onclick=()=>{boardMode=kind;renderBoard()};
-$('board-reset').onclick=()=>{if(typeof confirm==='function'&&!confirm('Hapus skor '+(boardMode==='demo'?'latihan':'kamera')+' hari ini?'))return;try{localStorage.removeItem(boardKey(boardMode))}catch{}renderBoard()};
+$('camera-start').onclick=enableCamera;$('camera-retry').onclick=enableCamera;$('round-start').onclick=startRound;$('setup-back').onclick=goHome;$('pause').onclick=()=>pauseGame();$('resume').onclick=resumeGame;$('exit-round').onclick=goHome;$('home').onclick=goHome;$('again').onclick=()=>{if(mode==='camera'&&!cameraReady){void enableCamera()}else if(mode==='camera'&&!trackingFresh()){setState('setup');overlays('setup-overlay');$('round-start').disabled=true;$('setup-title').textContent='Tunjukkan tanganmu kembali';$('setup-info').textContent='Setelah tangan terdeteksi, kamu bisa memulai ronde baru.'}else startRound()};
+$('board-reset').onclick=()=>{if(typeof confirm==='function'&&!confirm('Hapus skor hari ini?'))return;try{localStorage.removeItem(boardKey('camera'))}catch{}renderBoard()};
 function syncSound(){for(const id of ['sound','stage-sound']){$(id).textContent=sound?'Suara on':'Suara off';$(id).setAttribute('aria-pressed',String(sound));$(id).setAttribute('aria-label',sound?'Matikan suara':'Aktifkan suara')}}
 function toggleSound(){sound=!sound;syncSound();if(sound)tone()}
 async function toggleFullscreen(){try{if(desktop?.toggleFullscreen){await desktop.toggleFullscreen();return}if(document.fullscreenElement)await document.exitFullscreen();else await document.documentElement.requestFullscreen()}catch{$('status').textContent='Layar penuh tidak tersedia di perangkat ini.'}}
 $('sound').onclick=toggleSound;$('stage-sound').onclick=toggleSound;$('fullscreen').onclick=toggleFullscreen;$('stage-fullscreen').onclick=toggleFullscreen;
 $('stage-toggle').onclick=()=>{stage=!stage;applyStage()};$('stage-exit').onclick=()=>{stage=false;applyStage()};
-function pointerAim(e){if(mode!=='demo')return;const r=canvas.getBoundingClientRect();aim={x:clamp((e.clientX-r.left)/r.width*W,20,W-20),y:clamp((e.clientY-r.top)/r.height*H,100,H-80)}}
-function syncActions(){
- manualFire=heldActions.fire.size>0;manualShield=heldActions.shield.size>0;
- for(const [id,active] of [['demo-shield',manualShield]]){$(id).classList.toggle('held',active);$(id).setAttribute('aria-pressed',String(active))}
-}
-function setAction(kind,source,on){if(on)heldActions[kind].add(source);else heldActions[kind].delete(source);syncActions()}
-function releasePointer(e){for(const set of Object.values(heldActions))for(const source of set)if(source.startsWith('pointer:'+e.pointerId+':'))set.delete(source);syncActions()}
-function resetInputs(){for(const set of Object.values(heldActions))set.clear();keys.clear();syncActions()}
-function acceptsInput(){return mode==='demo'&&['playing','countdown'].includes(state)}
-function mouseButtons(e){if(e.pointerType!=='mouse'||e.buttons===undefined)return;setAction('fire','pointer:'+e.pointerId+':fire',!!(e.buttons&1));setAction('shield','pointer:'+e.pointerId+':shield',!!(e.buttons&2))}
-canvas.addEventListener('pointermove',e=>{if(acceptsInput()){pointerAim(e);mouseButtons(e)}});
-canvas.addEventListener('pointerdown',e=>{
- if(!acceptsInput()||![0,2].includes(e.button))return;e.preventDefault();pointerAim(e);canvas.setPointerCapture(e.pointerId);
- const kind=e.button===2?'shield':'fire';setAction(kind,'pointer:'+e.pointerId+':'+kind,true);mouseButtons(e);canvas.focus({preventScroll:true});
-});
-canvas.addEventListener('contextmenu',e=>e.preventDefault());
-window.addEventListener('pointerup',releasePointer);window.addEventListener('pointercancel',releasePointer);canvas.addEventListener('lostpointercapture',releasePointer);
-function holdButton(id,kind){
- const button=$(id);
- button.addEventListener('pointerdown',e=>{if(!acceptsInput())return;e.preventDefault();button.setPointerCapture(e.pointerId);setAction(kind,'pointer:'+e.pointerId+':'+kind,true)});
- button.addEventListener('pointerup',releasePointer);button.addEventListener('pointercancel',releasePointer);button.addEventListener('lostpointercapture',releasePointer);
- button.addEventListener('keydown',e=>{if(!acceptsInput()||!['Enter',' '].includes(e.key))return;e.preventDefault();setAction(kind,'button:'+id+':'+e.key,true)});
- button.addEventListener('keyup',e=>{if(!['Enter',' '].includes(e.key))return;e.preventDefault();setAction(kind,'button:'+id+':'+e.key,false)});
- button.addEventListener('blur',()=>{for(const source of heldActions[kind])if(source.startsWith('button:'+id+':'))heldActions[kind].delete(source);syncActions()});
-}
-holdButton('demo-shield','shield');
-function keyAction(key){return key==='Enter'?'fire':key.toLowerCase()==='s'?'shield':null}
 window.addEventListener('keydown',e=>{
  if(['INPUT','TEXTAREA'].includes(e.target.tagName)||e.target.isContentEditable)return;
  if(e.key==='Escape'){e.preventDefault();if(!e.repeat)state==='paused'?resumeGame():pauseGame();return}
- if(e.target.tagName==='BUTTON'||!acceptsInput()||e.altKey||e.ctrlKey||e.metaKey)return;
- if(!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Enter','s','S'].includes(e.key))return;
- e.preventDefault();const key=e.key.toLowerCase()==='s'?'s':e.key;
- if(e.repeat&&!keys.has(key))return;keys.add(key);const kind=keyAction(key);if(kind)setAction(kind,'keyboard:'+key,true);
 });
-window.addEventListener('keyup',e=>{const key=e.key.toLowerCase()==='s'?'s':e.key;keys.delete(key);const kind=keyAction(key);if(kind)setAction(kind,'keyboard:'+key,false)});
-window.addEventListener('blur',()=>{resetInputs();if(mode==='demo')pauseGame()});
-document.addEventListener('visibilitychange',()=>{if(document.hidden){resetInputs();pauseGame()}});
-window.addEventListener('pagehide',()=>{resetInputs();pauseGame();stopCamera()});
+document.addEventListener('visibilitychange',()=>{if(document.hidden){pauseGame()}});
+window.addEventListener('pagehide',()=>{pauseGame();stopCamera()});
 window.addEventListener('pageshow',e=>{if(e.persisted&&mode==='camera'&&state!=='menu'&&state!=='result'){setState('setup');overlays('setup-overlay');show('camera-retry');$('setup-title').textContent='Aktifkan kamera kembali';$('setup-info').textContent='Kamera dihentikan saat kamu meninggalkan halaman.'}});
-if(document.modelContext?.registerTool){try{Promise.resolve(document.modelContext.registerTool({name:'read_arena_state',description:'Read round status and today’s device-local leaderboard. Does not activate the camera or play a round.',inputSchema:{type:'object',properties:{},additionalProperties:false},annotations:{readOnlyHint:true,untrustedContentHint:true},execute:input=>{if(!input||Object.keys(input).length)throw new Error('Expected an empty object');return{state,mode,score,remaining:Math.ceil(remaining),health,leaderboard:readBoard(boardMode)}}})).catch(()=>{})}catch{}}
+if(document.modelContext?.registerTool){try{Promise.resolve(document.modelContext.registerTool({name:'read_arena_state',description:'Read round status and today’s device-local leaderboard. Does not activate the camera or play a round.',inputSchema:{type:'object',properties:{},additionalProperties:false},annotations:{readOnlyHint:true,untrustedContentHint:true},execute:input=>{if(!input||Object.keys(input).length)throw new Error('Expected an empty object');return{state,mode,score,remaining:Math.ceil(remaining),health,leaderboard:readBoard('camera')}}})).catch(()=>{})}catch{}}
 if(desktop)$('app-edition').textContent='DESKTOP APP';
 applyStage();syncSound();renderBoard();drawMap();requestAnimationFrame(tick);
