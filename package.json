@@ -11,6 +11,8 @@
   "scripts": {
     "test": "node --check dist/app.js && node --check dist/tracker-worker.js && node --check electron/main.cjs && node --check electron/preload.cjs && node scripts/check.mjs && node scripts/regression.mjs",
     "start": "electron .",
+    "serve": "node scripts/serve.mjs",
+    "play": "node scripts/serve.mjs",
     "icon": "node scripts/make-icon.mjs",
     "dist:win": "electron-builder --win --publish never",
     "dist:mac": "electron-builder --mac --publish never",
