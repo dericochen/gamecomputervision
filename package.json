@@ -14,6 +14,7 @@
     "serve": "node scripts/serve.mjs",
     "play": "node scripts/serve.mjs",
     "icon": "node scripts/make-icon.mjs",
+    "guide": "node scripts/make-guide.mjs",
     "dist:win": "electron-builder --win --publish never",
     "dist:mac": "electron-builder --mac --publish never",
     "dist:linux": "electron-builder --linux --publish never"
