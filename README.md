@@ -1,6 +1,6 @@
-# AI Hand Battle
+# Hand Battle
 
-Game kamera 60 detik dengan bidik, energy blast, shield, nova, boss, dan power-up. Kamera diproses di perangkat, tanpa merekam atau mengunggah video. Tersedia sebagai **aplikasi desktop** (Windows, macOS, Linux) dan sebagai situs GitHub Pages.
+Game kamera 60 detik: arahkan telunjuk ke virus dan tembakan keluar otomatis. Ada perisai, nova, Raja Virus, dan power-up. Kamera diproses di perangkat, tanpa merekam atau mengunggah video. Tersedia sebagai **aplikasi desktop** (Windows, macOS, Linux) dan sebagai situs GitHub Pages.
 
 ## Panduan bermain (PDF)
 
@@ -97,20 +97,18 @@ Kelebihan aplikasi dibanding versi website:
 
 ## Kontrol
 
-- **Telunjuk:** bidik.
-- **Jepit ibu jari + telunjuk:** energy blast berulang.
+- **Telunjuk:** bidik. **Tembakan keluar otomatis** saat lingkaran menyentuh virus atau power-up — tidak perlu menjepit.
 - **Telapak terbuka:** shield, termasuk dengan tangan kedua.
   - Energi shield habis kalau ditahan terus.
   - Lepas telapak untuk mengisi ulang sampai 25 sebelum bisa dipakai lagi.
 - **Kepalan 1,5 detik lalu buka:** nova ke seluruh arena. Cooldown 5 detik.
 - **Latihan mouse:**
-  - Bidik: mouse atau tombol panah.
-  - Tembak: klik atau Enter.
+  - Bidik: mouse atau tombol panah (tembak otomatis saat kursor di atas virus).
   - Shield: S.
   - Nova: tahan lalu lepas Spasi.
   - Esc: jeda.
 
-**Kalibrasi 4 gerakan** menyesuaikan pengenal gestur dengan bentuk tangan pemain. Kalibrasi hanya berlaku selama sesi.
+**Sesuaikan gerakan** (3 gerakan: bidik, perisai, nova) menyesuaikan pengenal gestur dengan bentuk tangan pemain. Kalibrasi hanya berlaku selama sesi.
 
 ## Implementasi
 

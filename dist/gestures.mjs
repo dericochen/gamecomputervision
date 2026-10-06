@@ -42,7 +42,7 @@ export class GestureCalibration {
   return {ok:true};
  }
  match(features){
-  if(this.templates.length!==4)return null;
+  if(this.templates.length<3)return null;
   const ranked=this.templates.map(t=>({...t,error:shapeDistance(t.vector,features.vector)})).sort((a,b)=>a.error-b.error);
   const best=ranked[0];
   if(best.error>best.radius||ranked[1].error-best.error<.045)return null;

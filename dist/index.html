@@ -2,50 +2,98 @@
 <html lang="id">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="theme-color" content="#080e16"><title>AI Hand Battle — Vision Arena</title>
-<meta name="description" content="Pertahankan arena dengan gerakan tangan. Game kamera dengan energy blast, shield, nova, dan leaderboard booth.">
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23080e16'/%3E%3Cpath d='M18 4 7 18h8l-1 10 11-15h-8z' fill='%2367f8d5'/%3E%3C/svg%3E">
-<link rel="stylesheet" href="style.css?v=5">
+<meta name="theme-color" content="#1c2a78"><title>Hand Battle — Selamatkan Kampus!</title>
+<meta name="description" content="Game kamera seru: arahkan tanganmu, tembak virus, lindungi markas. Tanpa stik, tanpa sentuh.">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%23ff8a1f'/%3E%3Ccircle cx='16' cy='16' r='8' fill='%23fff' stroke='%231b1340' stroke-width='2.5'/%3E%3Ccircle cx='16' cy='16' r='3' fill='%231b1340'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="style.css?v=6">
 </head>
 <body>
-<header class="header"><a class="brand" href="./"><span class="brand-icon">ϟ</span><span>VISION<span class="muted">/</span>ARENA<small>COMPUTER SCIENCE · INTERACTIVE LAB</small></span></a><div class="header-actions"><span class="edition" id="app-edition">EXPERIMENT 002</span><button id="stage-toggle" class="icon-btn">Mode panggung</button><button id="sound" class="icon-btn" aria-label="Aktifkan suara" aria-pressed="false">Suara off</button><button id="fullscreen" class="icon-btn">Layar penuh</button></div></header>
+<header class="header">
+ <a class="brand" href="./"><span class="brand-icon" aria-hidden="true">✋</span><span>Hand<b>Battle</b><small id="app-edition">Selamatkan kampus dari serbuan virus!</small></span></a>
+ <div class="header-actions"><button id="stage-toggle" class="chip-btn">Mode panggung</button><button id="sound" class="chip-btn" aria-label="Aktifkan suara" aria-pressed="false">Suara off</button><button id="fullscreen" class="chip-btn">Layar penuh</button></div>
+</header>
 <main>
-<div class="title-row"><div><p class="eyebrow">HAND TRACKING EXPERIENCE</p><h1>AI HAND <span>BATTLE</span></h1></div><p class="round-tag"><span>01 — 03</span>60 DETIK. TANGANMU. ARENAMU.</p></div>
 <div class="workspace">
 <section class="game-col" aria-label="Arena permainan">
 <div class="arena" id="arena">
-<canvas id="game" width="1280" height="720" tabindex="0" aria-label="Arena AI Hand Battle. Dalam latihan: gerakkan mouse untuk membidik, klik atau Enter untuk menembak, S untuk shield, tahan Spasi untuk nova."></canvas>
+<canvas id="game" width="1280" height="720" tabindex="0" aria-label="Arena Hand Battle. Latihan mouse: arahkan kursor ke virus untuk menembak otomatis, S untuk perisai, tahan Spasi untuk nova."></canvas>
 <video id="camera" autoplay playsinline muted hidden></video>
-<div class="hud"><div><span class="hud-label">SCORE</span><strong id="score">00000</strong><span id="multiplier" class="multiplier"></span></div><div class="hud-middle"><span id="phase" class="hud-label">STANDBY</span><strong id="clock">60<span>s</span></strong></div><div class="hud-right"><span class="hud-label">CORE INTEGRITY</span><div class="health-pips" id="health" aria-label="Nyawa 5 dari 5"><i></i><i></i><i></i><i></i><i></i></div></div></div>
-<div id="start-overlay" class="overlay"><div class="start-content"><div class="arena-stamp">GESTURE CONTROL / NO CONTROLLER</div><h2>AIM.<br><span>CAST.</span> DEFEND.</h2><p>Hancurkan ancaman digital.<br>Pakai tanganmu untuk melindungi core.</p><div class="start-actions"><button class="primary" id="camera-start">Aktifkan kamera</button><button class="secondary" id="demo-start">Coba latihan mouse</button></div><p class="small-note">Kamera diproses di perangkatmu. Tidak direkam.</p></div><div class="start-ring" aria-hidden="true"><span>ϟ</span></div><div class="stage-board" id="stage-board"><span class="eyebrow">TOP 5 HARI INI</span><div id="stage-board-list"></div></div></div>
-<div id="pause-overlay" class="overlay compact hidden"><div class="overlay-card"><span class="eyebrow" id="pause-reason">RONDE DIJEDA</span><h2 id="pause-title">Ambil napas dulu.</h2><p id="pause-info">Lanjutkan saat kamu siap.</p><button class="primary" id="resume">Lanjutkan</button><button class="text-btn" id="exit-round">Selesai & kembali</button></div></div>
-<div id="result-overlay" class="overlay compact hidden"><div class="overlay-card results"><span class="eyebrow" id="result-heading">ROUND COMPLETE</span><div class="result-top"><span id="result-grade" class="grade">D</span><h2 id="result-score">0</h2></div><p id="result-rank" class="result-rank"></p><p id="result-summary"></p><form id="save-score"><label for="player-name">Nama pemain</label><div class="name-row"><input id="player-name" maxlength="18" placeholder="Nama atau nickname" autocomplete="off" required><button class="primary" type="submit">Simpan</button></div></form><p id="save-info" class="small-note" role="status"></p><div class="next-player"><span id="next-hint"></span><progress id="next-progress" value="0" max="1" aria-label="Tahan telapak untuk main lagi"></progress></div><div class="result-actions"><button class="primary" id="again">Main lagi</button><button class="secondary" id="home">Menu utama</button></div></div></div>
-<div class="bottom-hud"><span id="gesture-display">AWAITING PLAYER</span><div class="energy"><label for="charge">NOVA</label><progress id="charge" value="0" max="1"></progress><span id="charge-label">0%</span></div><span id="powerup-status" class="powerup-status"></span><div class="energy shield-energy"><label for="shield">SHIELD</label><progress id="shield" value="100" max="100"></progress></div><button id="pause" class="icon-btn hidden">Jeda</button></div>
+<div class="hud">
+ <div class="hud-box"><span class="hud-label">SKOR</span><strong id="score">00000</strong><span id="multiplier" class="multiplier"></span></div>
+ <div class="hud-box hud-middle"><span id="phase" class="hud-label">WAKTU</span><strong id="clock">60<span>s</span></strong></div>
+ <div class="hud-box hud-right"><span class="hud-label">NYAWA MARKAS</span><div class="health-pips" id="health" aria-label="Nyawa 5 dari 5"><i></i><i></i><i></i><i></i><i></i></div></div>
+</div>
+<div id="start-overlay" class="overlay">
+ <div class="start-content">
+  <span class="sticker">Tanpa stik · tanpa sentuh</span>
+  <h2>Arahkan.<br><span>Tembak.</span> Menang!</h2>
+  <p>Virus menyerbu kampus! Arahkan telunjukmu ke virus — tembakan keluar sendiri. Buka telapak untuk perisai, kepalkan tangan untuk ledakan nova.</p>
+  <div class="start-actions"><button class="primary big" id="camera-start">▶ Main pakai kamera</button><button class="secondary" id="demo-start">Latihan pakai mouse</button></div>
+  <p class="small-note">Kamera hanya membaca gerakan tangan di perangkat ini. Tidak direkam.</p>
+ </div>
+ <div class="start-mascot" aria-hidden="true"><span class="blob b1"></span><span class="blob b2"></span><span class="blob b3"></span></div>
+ <div class="stage-board" id="stage-board"><span class="eyebrow">🏆 Juara hari ini</span><div id="stage-board-list"></div></div>
+</div>
+<div id="pause-overlay" class="overlay compact hidden"><div class="overlay-card"><span class="eyebrow" id="pause-reason">RONDE DIJEDA</span><h2 id="pause-title">Ambil napas dulu.</h2><p id="pause-info">Lanjutkan saat kamu siap.</p><button class="primary" id="resume">Lanjutkan</button><button class="text-btn" id="exit-round">Selesai &amp; kembali</button></div></div>
+<div id="result-overlay" class="overlay compact hidden"><div class="overlay-card results">
+ <span class="eyebrow" id="result-heading">RONDE SELESAI</span>
+ <div class="result-top"><span id="result-grade" class="grade">D</span><h2 id="result-score">0</h2></div>
+ <p id="result-rank" class="result-rank"></p><p id="result-summary"></p>
+ <form id="save-score"><label for="player-name">Tulis namamu di papan juara</label><div class="name-row"><input id="player-name" maxlength="18" placeholder="Nama atau nickname" autocomplete="off" required><button class="primary" type="submit">Simpan</button></div></form>
+ <p id="save-info" class="small-note" role="status"></p>
+ <div class="next-player"><span id="next-hint"></span><progress id="next-progress" value="0" max="1" aria-label="Tahan telapak untuk main lagi"></progress></div>
+ <div class="result-actions"><button class="primary" id="again">Main lagi</button><button class="secondary" id="home">Menu utama</button></div>
+</div></div>
+<div class="bottom-hud">
+ <span id="gesture-display" class="status-pill">MENUNGGU PEMAIN</span>
+ <div class="energy"><label for="charge">NOVA</label><progress id="charge" value="0" max="1"></progress><span id="charge-label">0%</span></div>
+ <span id="powerup-status" class="powerup-status"></span>
+ <div class="energy shield-energy"><label for="shield">PERISAI</label><progress id="shield" value="100" max="100"></progress></div>
+ <button id="pause" class="chip-btn hidden">Jeda</button>
+</div>
 <div id="announcement" aria-live="polite" class="announcement"></div>
-<div class="stage-bar" id="stage-bar"><button id="stage-sound" class="icon-btn" aria-pressed="false">Suara off</button><button id="stage-fullscreen" class="icon-btn">Layar penuh</button><button id="stage-exit" class="icon-btn">Mode halaman</button></div>
+<div class="stage-bar" id="stage-bar"><button id="stage-sound" class="chip-btn" aria-pressed="false">Suara off</button><button id="stage-fullscreen" class="chip-btn">Layar penuh</button><button id="stage-exit" class="chip-btn">Mode halaman</button></div>
 </div>
-<section id="setup-overlay" class="setup-panel hidden" aria-label="Tes dan kalibrasi gestur">
-<div class="setup-heading"><div><span class="eyebrow">TES GESTUR SEBELUM MAIN</span><h2 id="setup-title">Menyiapkan pengenal gestur</h2><p id="setup-info" role="status">Izinkan kamera untuk melanjutkan.</p></div><span id="setup-live" class="pose-badge">BELUM ADA TANGAN</span></div>
-<div class="gesture-checks" aria-label="Gerakan yang sudah berhasil dicoba"><span id="test-point">☝ Bidik</span><span id="test-pinch">🤏 Tembak</span><span id="test-palm">✋ Shield</span><span id="test-fist">✊ Nova</span></div>
-<p class="setup-tip">Telunjuk tegak, telapak menghadap kamera. Geser tangan untuk membidik, lalu tempelkan ujung ibu jari ke ujung telunjuk untuk menembak (jari lain bebas). Pemain adalah orang yang paling dekat dengan kamera; tangan penonton di belakang diabaikan (warna abu-abu).</p>
-<div class="calibration-actions"><button id="calibration-start" class="secondary" disabled>Kalibrasi 4 gerakan</button><button id="calibration-reset" class="text-btn hidden">Pakai setelan standar</button><span id="calibration-status" role="status">Belum pas? Sesuaikan pengenal dengan tanganmu.</span></div>
-<div id="calibration-panel" class="calibration-panel hidden">
-<div class="calibration-example"><span id="calibration-icon" aria-hidden="true">☝</span><div><span id="calibration-step" class="eyebrow">LANGKAH 1 / 4</span><h3 id="calibration-title">Bidik</h3><p id="calibration-help"></p></div></div>
-<p id="calibration-info" role="status">Gunakan satu tangan yang sama untuk semua gerakan.</p>
-<progress id="calibration-progress" value="0" max="1" aria-label="Kemajuan perekaman gestur"></progress>
-<div class="calibration-buttons"><button id="calibration-capture" class="primary">Rekam gerakan</button><button id="calibration-cancel" class="secondary">Batal</button></div>
-</div>
-<div class="assist-row"><button id="autofire-toggle" class="secondary" aria-pressed="false">Tembak otomatis: OFF</button><span>Susah menjepit? Nyalakan ini: cukup arahkan lingkaran ke musuh, tembakan keluar sendiri. Jepit tetap berfungsi.</span></div>
-<div class="setup-buttons"><button class="primary" id="round-start" disabled>Mulai ronde 60 detik</button><button class="secondary hidden" id="camera-retry">Coba kamera lagi</button><button class="text-btn" id="setup-back">Kembali</button></div>
+<section id="setup-overlay" class="setup-panel hidden" aria-label="Pemanasan sebelum main">
+ <div class="setup-heading"><div><span class="eyebrow">PEMANASAN</span><h2 id="setup-title">Menyiapkan kamera</h2><p id="setup-info" role="status">Izinkan kamera untuk melanjutkan.</p></div><span id="setup-live" class="pose-badge">BELUM ADA TANGAN</span></div>
+ <div class="gesture-checks" aria-label="Gerakan yang sudah dicoba"><span id="test-point">☝ Bidik</span><span id="test-palm">✋ Perisai</span><span id="test-fist">✊ Nova</span></div>
+ <p class="setup-tip">Arahkan telunjuk ke layar: lingkaran ikut tanganmu dan <b>menembak sendiri</b> saat mengenai virus. Yang main adalah orang paling dekat dengan kamera — tangan penonton di belakang tidak dihitung.</p>
+ <div class="setup-buttons"><button class="primary big" id="round-start" disabled>▶ Mulai main (60 detik)</button><button class="secondary hidden" id="camera-retry">Coba kamera lagi</button><button class="text-btn" id="setup-back">Kembali</button></div>
+ <details class="more"><summary>Gerakan kurang terbaca? Sesuaikan dengan tanganmu</summary>
+  <div class="calibration-actions"><button id="calibration-start" class="secondary" disabled>Sesuaikan gerakan</button><button id="calibration-reset" class="text-btn hidden">Pakai setelan standar</button><span id="calibration-status" role="status">Rekam bentuk tanganmu sendiri untuk bidik, perisai, dan nova.</span></div>
+  <div id="calibration-panel" class="calibration-panel hidden">
+   <div class="calibration-example"><span id="calibration-icon" aria-hidden="true">☝</span><div><span id="calibration-step" class="eyebrow">LANGKAH 1 / 3</span><h3 id="calibration-title">Bidik</h3><p id="calibration-help"></p></div></div>
+   <p id="calibration-info" role="status">Gunakan satu tangan yang sama untuk semua gerakan.</p>
+   <progress id="calibration-progress" value="0" max="1" aria-label="Kemajuan perekaman gerakan"></progress>
+   <div class="calibration-buttons"><button id="calibration-capture" class="primary">Rekam gerakan</button><button id="calibration-cancel" class="secondary">Batal</button></div>
+  </div>
+ </details>
 </section>
-<div class="arena-footer"><span id="mode-label">CAMERA ARENA</span><p id="status" role="status">Siap saat kamu siap.</p><span class="key-hint">60s / 3 waves</span></div>
-<div class="demo-controls hidden" id="demo-controls"><p>Bidik: mouse / sentuh / tombol panah</p><button id="demo-fire">Blast <kbd>Enter</kbd></button><button id="demo-shield">Shield <kbd>S</kbd></button><button id="demo-charge">Tahan Nova <kbd>Space</kbd></button></div>
-<section class="instructions"><div class="section-head"><h2>Empat gerakan. Satu misi.</h2><span>QUICK GUIDE</span></div><div class="gesture-grid"><div><span class="gesture-icon">☝</span><div><h3>Bidik</h3><p>Telunjuk tegak, tiga jari dilipat. Geser tangan agar lingkaran mengenai target.</p></div><b>01</b></div><div><span class="gesture-icon">🤏</span><div><h3>Energy blast</h3><p>Tempelkan ujung ibu jari ke ujung telunjuk; jari lain bebas. Tahan untuk menembak. Bisa juga pakai Tembak otomatis.</p></div><b>02</b></div><div><span class="gesture-icon">✋</span><div><h3>Shield</h3><p>Buka telapak, termasuk tangan kedua. Lepas untuk mengisi energi.</p></div><b>03</b></div><div><span class="gesture-icon">✊</span><div><h3>Nova</h3><p>Kepalkan sampai READY, lalu buka telapak untuk melepas nova.</p></div><b>04</b></div></div></section>
+<div class="arena-footer"><span id="mode-label">MODE KAMERA</span><p id="status" role="status">Siap saat kamu siap.</p></div>
+<div class="demo-controls hidden" id="demo-controls"><p>Arahkan kursor ke virus — tembakan otomatis.</p><button id="demo-shield">Perisai <kbd>S</kbd></button><button id="demo-charge">Tahan Nova <kbd>Spasi</kbd></button></div>
+<section class="instructions"><h2>Cara main</h2><div class="gesture-grid">
+ <div class="move m1"><span class="gesture-icon">☝</span><h3>Bidik &amp; tembak</h3><p>Arahkan telunjuk. Saat lingkaran menyentuh virus, tembakan keluar sendiri.</p></div>
+ <div class="move m2"><span class="gesture-icon">✋</span><h3>Perisai</h3><p>Buka telapak (boleh tangan kedua). Turunkan untuk mengisi energinya.</p></div>
+ <div class="move m3"><span class="gesture-icon">✊</span><h3>Nova</h3><p>Kepalkan sampai SIAP, lalu buka telapak: semua virus meledak!</p></div>
+</div></section>
 </section>
-<aside class="side-col"><section class="telemetry"><div class="section-head"><h2>Vision feed</h2><span class="live-label" id="live-label">OFFLINE</span></div><div class="feed-visual"><canvas id="hand-map" width="360" height="190" aria-label="Visualisasi landmark tangan"></canvas><span id="feed-status">HAND LANDMARK SYSTEM</span></div><div class="gesture-readout"><strong id="gesture-live">Menunggu kamera</strong><p id="gesture-detail">Gerakan yang terbaca akan muncul di sini.</p><p id="secondary-gesture"></p></div><dl><div><dt>Tangan terdeteksi</dt><dd id="hands-count">—</dd></div><div><dt>Landmark aktif</dt><dd id="nodes">—</dd></div><div><dt>Tracking rate</dt><dd id="fps">—</dd></div><div><dt>Waktu inferensi</dt><dd id="latency">—</dd></div><div><dt>Akselerasi</dt><dd id="accel">—</dd></div></dl><div class="pipeline"><span>CAMERA</span><i>›</i><span>21 POINTS</span><i>›</i><span>ACTION</span></div></section>
-<section class="leaderboard"><div class="section-head"><h2>Top players</h2><span id="board-date"></span></div><div class="board-tabs" role="group" aria-label="Jenis skor"><button id="board-camera" class="selected" aria-pressed="true">Kamera</button><button id="board-demo" aria-pressed="false">Latihan</button></div><div id="board-list"><p class="empty">Arena belum punya juara.<br>Jadilah pemain pertama.</p></div><p class="board-note">Leaderboard hari ini · tersimpan di perangkat ini. <button id="board-reset" class="link-btn">Reset</button></p></section>
-<section class="mission"><span class="eyebrow">THE MISSION</span><p>Lindungi core. Rangkai combo. Rebut posisi pertama.</p><div><span>Blast</span><strong>100 + combo</strong></div><div><span>Shield block</span><strong>25 pts</strong></div><div><span>Nova</span><strong>70 / target</strong></div><div><span>Trojan / Worm / Bug</span><strong>+150 / +50 / +50</strong></div><div><span>Bonus emas</span><strong>+400 & power-up</strong></div><div><span>Boss (detik 42)</span><strong>+3000</strong></div><div><span>Combo 12</span><strong>FEVER ×2</strong></div></section></aside>
+<aside class="side-col">
+ <section class="card camera-card"><div class="card-head"><h2>Kamera</h2><span class="live-label" id="live-label">OFFLINE</span></div>
+  <div class="feed-visual"><canvas id="hand-map" width="360" height="190" aria-label="Posisi tangan"></canvas><span id="feed-status">KAMERA BELUM AKTIF</span></div>
+  <div class="gesture-readout"><strong id="gesture-live">Menunggu kamera</strong><p id="gesture-detail">Gerakan yang terbaca akan muncul di sini.</p><p id="secondary-gesture"></p></div>
+  <p class="hands-line">Tangan terlihat: <b id="hands-count">—</b></p>
+  <details class="tech"><summary>Info teknis</summary><dl><div><dt>Titik tangan</dt><dd id="nodes">—</dd></div><div><dt>Kecepatan baca</dt><dd id="fps">—</dd></div><div><dt>Waktu proses</dt><dd id="latency">—</dd></div><div><dt>Mesin</dt><dd id="accel">—</dd></div></dl></details>
+ </section>
+ <section class="card leaderboard"><div class="card-head"><h2>🏆 Papan juara</h2><span id="board-date"></span></div>
+  <div class="board-tabs" role="group" aria-label="Jenis skor"><button id="board-camera" class="selected" aria-pressed="true">Kamera</button><button id="board-demo" aria-pressed="false">Latihan</button></div>
+  <div id="board-list"><p class="empty">Belum ada juara.<br>Jadilah yang pertama!</p></div>
+  <p class="board-note">Skor hari ini, tersimpan di perangkat ini. <button id="board-reset" class="link-btn">Reset</button></p>
+ </section>
+ <section class="card points"><h2>Poin</h2>
+  <div><span>Virus</span><strong>100 + combo</strong></div><div><span>Virus berhelm (3×)</span><strong>+150</strong></div><div><span>Bintang emas</span><strong>+400</strong></div><div><span>Raja Virus</span><strong>+3000</strong></div><div><span>Tahan dengan perisai</span><strong>+25</strong></div><div><span>Combo 12</span><strong>FEVER ×2</strong></div>
+ </section>
+</aside>
 </div>
-<footer><span>BUILT FOR THE CURIOUS.</span><p>Computer vision × Real-time interaction</p><span>VISION ARENA / 002 · v4</span></footer>
-</main><script type="module" src="app.js?v=5"></script>
+<footer><span>Hand Battle</span><p>Dibuat untuk dimainkan rame-rame 🎉</p></footer>
+</main><script type="module" src="app.js?v=6"></script>
 </body></html>

@@ -34,7 +34,7 @@ check('Empty shield cannot pulse on while held',()=>{const a=makeApp();a.run("ma
 check('Pause clears armed nova',()=>{const a=makeApp();a.run('charge=1; pauseGame(); resumeGame(); update(.1)');assert.equal(a.run('novaCooldown'),0);assert.equal(a.run('charge'),0)});
 check('Simultaneous hits cannot make health negative',()=>{const a=makeApp();a.run("health=1; enemies=Array.from({length:4},()=>({x:300,y:645,startX:300,v:80,r:30,age:0,spin:0})); update(.1)");assert.equal(a.run('health'),0)});
 check('Resume returns keyboard control to the canvas',()=>{const a=makeApp();let focused=false;a.elements.game.focus=()=>{focused=true};a.run('pauseGame(); resumeGame()');assert(focused)});
-check('Two touch buttons remain independent',()=>{const a=makeApp();a.elements['demo-fire'].dispatch('pointerdown',{pointerId:11});a.elements['demo-shield'].dispatch('pointerdown',{pointerId:12});a.window.dispatch('pointerup',{pointerId:12});assert(a.run('manualFire'));assert(!a.run('manualShield'));a.elements['demo-fire'].dispatch('lostpointercapture',{pointerId:11});assert(!a.run('manualFire'))});
+check('Two touch buttons remain independent',()=>{const a=makeApp();a.elements['demo-charge'].dispatch('pointerdown',{pointerId:11});a.elements['demo-shield'].dispatch('pointerdown',{pointerId:12});a.window.dispatch('pointerup',{pointerId:12});assert(a.run('manualCharge'));assert(!a.run('manualShield'));a.elements['demo-charge'].dispatch('lostpointercapture',{pointerId:11});assert(!a.run('manualCharge'))});
 check('Releasing a keyboard action preserves a held touch button',()=>{const a=makeApp();a.elements['demo-shield'].dispatch('pointerdown',{pointerId:12});a.window.dispatch('keydown',{key:'s',target:{tagName:'CANVAS'}});a.window.dispatch('keyup',{key:'S',target:{tagName:'CANVAS'}});assert(a.run('manualShield'));a.elements['demo-shield'].dispatch('pointercancel',{pointerId:12});assert(!a.run('manualShield'))});
 check('Nova requires full charge and an intentional release',()=>{const a=makeApp();a.run('manualCharge=true; update(1.5)');assert.equal(a.run('charge'),1);assert.equal(a.run('novaCooldown'),0);a.run('update(.1)');assert.equal(a.run('novaCooldown'),0);a.run('manualCharge=false; update(.1)');assert.equal(a.run('novaCooldown'),5);assert.equal(a.run('charge'),0)});
 check('Shield recovers only after release',()=>{const a=makeApp();a.run('manualShield=true; shield=0; update(.1); manualShield=false; update(1.2)');assert(a.run('shield')>=25);a.run('manualShield=true; update(.05)');assert(a.run('shielding'))});
@@ -97,9 +97,9 @@ check('Calibration ignores two-hand samples and blocks round start',()=>{
  a.run('processTracking(extra,3100); updateCalibrationClock(4300)');
  assert.equal(a.run('calibrationStep'),0);assert.equal(a.run('calibrationDraft.templates.length'),0);
 });
-check('Calibration wizard completes all four gestures with the same tracked hand',()=>{
+check('Calibration wizard completes all three gestures with the same tracked hand',()=>{
  const a=makeApp();a.run("mode='camera'; cameraReady=true; state='setup'; now=1000");
- for(const [step,kind] of ['point','pinch','palm','fist'].entries()){
+ for(const [step,kind] of ['point','palm','fist'].entries()){
   a.sandbox.frame=detection([hand(kind)],['Right']);
   a.run('processTracking(frame,now)');if(step===0)a.run('beginCalibration()');
   a.run('captureCalibration(); calibrationRecording.start=now+10; calibrationRecording.end=now+1210');
@@ -107,7 +107,7 @@ check('Calibration wizard completes all four gestures with the same tracked hand
   a.run('now+=300; processTracking(frame,now); updateCalibrationClock(now)');
   assert.equal(a.run('calibrationStep'),step+1);
  }
- assert.equal(a.run('handControls.calibration.templates.length'),4);assert.equal(a.run('calibrationDraft'),null);
+ assert.equal(a.run('handControls.calibration.templates.length'),3);assert.equal(a.run('calibrationDraft'),null);
 });
 // Actual MediaPipe model inference on Google's four public sample photos,
 // each tested as original, mirrored, and rotated 35 degrees. Images are not bundled.
