@@ -35,7 +35,7 @@ async function serve(request){
 function createWindow(){
  win=new BrowserWindow({
   width:1600,height:900,minWidth:960,minHeight:600,backgroundColor:'#080e16',show:false,autoHideMenuBar:true,
-  title:'AI Hand Battle',icon:path.join(__dirname,'..','build','icon.png'),
+  title:'Hand Battle',icon:path.join(__dirname,'..','build','icon.png'),
   webPreferences:{preload:path.join(__dirname,'preload.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true,backgroundThrottling:false,spellcheck:false}
  });
  win.once('ready-to-show',()=>{win.show();win.maximize()});

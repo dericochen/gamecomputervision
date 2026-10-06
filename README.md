@@ -1,6 +1,6 @@
-# AI Hand Battle
+# Hand Battle
 
-Game kamera 60 detik dengan bidik, energy blast, shield, nova, boss, dan power-up. Kamera diproses di perangkat, tanpa merekam atau mengunggah video. Tersedia sebagai **aplikasi desktop** (Windows, macOS, Linux) dan sebagai situs GitHub Pages.
+Game kamera 60 detik: arahkan telunjuk ke virus dan tembakan keluar otomatis. Ada perisai, bom yang mengurangi poin, Raja Virus, dan power-up. Kamera diproses di perangkat, tanpa merekam atau mengunggah video. Tersedia sebagai **aplikasi desktop** (Windows, macOS, Linux) dan sebagai situs GitHub Pages.
 
 ## Panduan bermain (PDF)
 
@@ -71,7 +71,7 @@ Kelebihan aplikasi dibanding versi website:
 ## Main di keramaian / booth
 
 - **Pemain dikunci.** Pemain adalah orang yang tangannya paling dekat dengan kamera.
-  - Tangan penonton di belakang ditampilkan abu-abu dengan label `DIABAIKAN`. Tangan ini tidak bisa membidik, menembak, membuka shield, atau mengisi nova.
+  - Tangan penonton di belakang ditampilkan abu-abu dengan label `DIABAIKAN`. Tangan ini tidak bisa membidik, menembak atau membuka shield.
   - Pelacak membaca hingga 4 tangan, jadi penonton tidak "merebut slot" tangan pemain.
 - **Tangan kedua pemain** tetap bisa memakai shield. Syaratnya, ukurannya mirip tangan pertama dan masih dalam jangkauan lengan.
 - **Selama ronde**, penonton tidak bisa mengambil alih. Kalau pemain keluar dari kamera, game dijeda sampai pemain (atau orang lain yang sama dekatnya) kembali.
@@ -84,7 +84,8 @@ Kelebihan aplikasi dibanding versi website:
 - **Wave 1 (0–20 dtk):** VIRUS dan BUG yang cepat dan zig-zag.
 - **Wave 2 (20–40 dtk):** muncul TROJAN berlapis baja (3 HP) dan WORM yang membelah jadi dua BUG.
 - **Wave 3 (40–60 dtk):** semua musuh, plus **BOSS MEGA VIRUS** pada detik 42.
-  - Boss punya 30 HP dan menembakkan BUG. Nova memberi 8 damage ke boss.
+  - Boss punya 30 HP dan menembakkan BUG.
+- **💣 Bom** muncul sejak detik 4 (maksimal 3 di layar). Jangan ditembak: kalau lingkaran diam di atas bom selama 0,3 detik, bom meledak, **skor −300** (tidak bisa di bawah 0), dan combo serta FEVER hilang. Lingkaran berubah merah sebagai peringatan. Bom yang jatuh ke markas tidak merusak apa pun. Chain blast tidak pernah meledakkan bom.
   - Mengalahkan boss memberi +3000 poin.
 - **Bonus emas** melintas di atas layar: +400 poin, dan pasti menjatuhkan power-up.
 - **Power-up** (tembak ikonnya):
@@ -97,20 +98,16 @@ Kelebihan aplikasi dibanding versi website:
 
 ## Kontrol
 
-- **Telunjuk:** bidik.
-- **Jepit ibu jari + telunjuk:** energy blast berulang.
+- **Telunjuk:** bidik. **Tembakan keluar otomatis** saat lingkaran menyentuh virus atau power-up — tidak perlu menjepit.
 - **Telapak terbuka:** shield, termasuk dengan tangan kedua.
   - Energi shield habis kalau ditahan terus.
   - Lepas telapak untuk mengisi ulang sampai 25 sebelum bisa dipakai lagi.
-- **Kepalan 1,5 detik lalu buka:** nova ke seluruh arena. Cooldown 5 detik.
 - **Latihan mouse:**
-  - Bidik: mouse atau tombol panah.
-  - Tembak: klik atau Enter.
+  - Bidik: mouse atau tombol panah (tembak otomatis saat kursor di atas virus).
   - Shield: S.
-  - Nova: tahan lalu lepas Spasi.
   - Esc: jeda.
 
-**Kalibrasi 4 gerakan** menyesuaikan pengenal gestur dengan bentuk tangan pemain. Kalibrasi hanya berlaku selama sesi.
+**Sesuaikan gerakan** (2 gerakan: bidik dan perisai) menyesuaikan pengenal gestur dengan bentuk tangan pemain. Kalibrasi hanya berlaku selama sesi.
 
 ## Implementasi
 

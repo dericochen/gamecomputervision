@@ -31,15 +31,13 @@ check('Mouse release preserves held keyboard shield',()=>{const a=makeApp();a.wi
 check('Missing hands freeze the countdown immediately',()=>{const a=makeApp();a.run("mode='camera'; cameraReady=true; state='countdown'; countdown=3; hands=[]; lastDetection=990; update(.1)");assert.equal(a.run('countdown'),3)});
 check('Stale tracking cannot keep a round moving',()=>{const a=makeApp();a.run("mode='camera'; cameraReady=true; hands=[{gesture:'pinch'}]; lastDetection=400; now=1000; update(.1)");assert.equal(a.run('remaining'),60)});
 check('Empty shield cannot pulse on while held',()=>{const a=makeApp();a.run("manualShield=true; shield=0; update(.1); update(.1)");assert.equal(a.run('shielding'),false);assert.equal(a.run('shield'),0)});
-check('Pause clears armed nova',()=>{const a=makeApp();a.run('charge=1; pauseGame(); resumeGame(); update(.1)');assert.equal(a.run('novaCooldown'),0);assert.equal(a.run('charge'),0)});
 check('Simultaneous hits cannot make health negative',()=>{const a=makeApp();a.run("health=1; enemies=Array.from({length:4},()=>({x:300,y:645,startX:300,v:80,r:30,age:0,spin:0})); update(.1)");assert.equal(a.run('health'),0)});
 check('Resume returns keyboard control to the canvas',()=>{const a=makeApp();let focused=false;a.elements.game.focus=()=>{focused=true};a.run('pauseGame(); resumeGame()');assert(focused)});
-check('Two touch buttons remain independent',()=>{const a=makeApp();a.elements['demo-fire'].dispatch('pointerdown',{pointerId:11});a.elements['demo-shield'].dispatch('pointerdown',{pointerId:12});a.window.dispatch('pointerup',{pointerId:12});assert(a.run('manualFire'));assert(!a.run('manualShield'));a.elements['demo-fire'].dispatch('lostpointercapture',{pointerId:11});assert(!a.run('manualFire'))});
+check('Two touches on the shield button stay independent',()=>{const a=makeApp();a.elements['demo-shield'].dispatch('pointerdown',{pointerId:11});a.elements['demo-shield'].dispatch('pointerdown',{pointerId:12});a.window.dispatch('pointerup',{pointerId:12});assert(a.run('manualShield'));a.elements['demo-shield'].dispatch('lostpointercapture',{pointerId:11});assert(!a.run('manualShield'))});
 check('Releasing a keyboard action preserves a held touch button',()=>{const a=makeApp();a.elements['demo-shield'].dispatch('pointerdown',{pointerId:12});a.window.dispatch('keydown',{key:'s',target:{tagName:'CANVAS'}});a.window.dispatch('keyup',{key:'S',target:{tagName:'CANVAS'}});assert(a.run('manualShield'));a.elements['demo-shield'].dispatch('pointercancel',{pointerId:12});assert(!a.run('manualShield'))});
-check('Nova requires full charge and an intentional release',()=>{const a=makeApp();a.run('manualCharge=true; update(1.5)');assert.equal(a.run('charge'),1);assert.equal(a.run('novaCooldown'),0);a.run('update(.1)');assert.equal(a.run('novaCooldown'),0);a.run('manualCharge=false; update(.1)');assert.equal(a.run('novaCooldown'),5);assert.equal(a.run('charge'),0)});
 check('Shield recovers only after release',()=>{const a=makeApp();a.run('manualShield=true; shield=0; update(.1); manualShield=false; update(1.2)');assert(a.run('shield')>=25);a.run('manualShield=true; update(.05)');assert(a.run('shielding'))});
 check('Backgrounding an auto-paused game prevents auto-resume',()=>{const a=makeApp();a.run("mode='camera'; cameraReady=true; lastDetection=1000; trackingRecoveredAt=0; hands=[{gesture:'point'}]; pauseGame(true)");a.document.hidden=true;a.document.dispatch('visibilitychange');a.run('update(.1)');assert.equal(a.run('state'),'paused');assert.equal(a.run('autoPaused'),false)});
-check('A new round clears controls, cooldowns, and score-save state',()=>{const a=makeApp();a.run('manualCharge=true; charge=1; novaCooldown=4; score=900; roundCompleted=true; saved=true; startRound()');assert.equal(a.run('charge'),0);assert.equal(a.run('novaCooldown'),0);assert.equal(a.run('score'),0);assert.equal(a.run('roundCompleted'),false);assert.equal(a.run('saved'),false);assert.equal(a.run('manualCharge'),false)});
+check('A new round clears controls, score-save state, and bomb count',()=>{const a=makeApp();a.run('manualShield=true; score=900; bombsHit=2; roundCompleted=true; saved=true; startRound()');assert.equal(a.run('score'),0);assert.equal(a.run('bombsHit'),0);assert.equal(a.run('roundCompleted'),false);assert.equal(a.run('saved'),false);assert.equal(a.run('manualShield'),false)});
 function hand(kind='palm',offset=0){
  const p=Array.from({length:21},()=>({x:.4+offset,y:.6,z:0}));p[0]={x:.4+offset,y:.85,z:0};p[4]={x:.1+offset,y:.4,z:0};
  for(const [i,x] of [[5,.25],[9,.35],[13,.45],[17,.55]]){const curled=kind==='fist'||(kind==='point'&&i!==5);p[i]={x:x+offset,y:.6,z:0};p[i+1]={x:x+offset,y:.45,z:0};p[i+2]={x:x+offset,y:curled?.55:.3,z:0};p[i+3]={x:x+offset,y:curled?.66:.2,z:0}}
@@ -60,7 +58,7 @@ check('Denied camera permission offers retry without losing control',async()=>{c
 check('Camera permission resolved after cancellation closes the late stream',async()=>{const a=makeApp();let resolve,stops=0;a.sandbox.navigator.mediaDevices={getUserMedia:()=>new Promise(r=>{resolve=r})};const task=a.run('enableCamera()');a.run('goHome()');resolve({getTracks:()=>[{stop(){stops++}}]});await task;assert.equal(stops,1);assert.equal(a.run('state'),'menu');assert.equal(a.run('cameraReady'),false)});
 check('An old frame cannot overwrite the busy state of a new camera session',async()=>{const a=makeApp();let resolve,closed=0;a.sandbox.createImageBitmap=()=>new Promise(r=>{resolve=r});a.elements.camera.readyState=4;a.elements.camera.currentTime=1;a.run('workerReady=true; cameraReady=true; lastInference=0; workerBusy=false; now=1000');const task=a.run('requestFrame()');a.run('stopCamera(); workerBusy=true');resolve({close(){closed++}});await task;assert.equal(closed,1);assert.equal(a.run('workerBusy'),true)});
 check('Main-thread fallback processes detections and closes its detector',async()=>{const a=makeApp();let detections=0,closes=0;a.sandbox.fakeDetector={recognizeForVideo(){detections++;return detection([hand('point')],['Right'])},close(){closes++}};a.elements.camera.readyState=4;a.elements.camera.currentTime=1;a.run('mainTracker=fakeDetector; mainTracking=true; cameraReady=true; lastInference=0; workerBusy=false; now=1000');await a.run('requestFrame()');assert.equal(detections,1);assert.equal(a.run('hands.length'),1);a.run('stopCamera()');assert.equal(closes,1);assert.equal(a.run('mainTracking'),false)});
-check('Uncertain and low-confidence poses do not trigger shield or nova',()=>{
+check('Uncertain and low-confidence poses do not trigger the shield',()=>{
  for(const kind of ['fist','palm'])assert.equal(gestures.classifyHand(hand(kind),'idle',undefined,1,[{...category(kind)[0],score:.3}]),'idle');
 });
 check('A single misread frame cannot fire, and releasing stops fire immediately',()=>{
@@ -71,15 +69,6 @@ check('A single misread frame cannot fire, and releasing stops fire immediately'
  c.update(detection([hand('pinch')],['Right']),250);
  assert.equal(c.update(detection([hand('pinch')],['Right']),400).primary.gesture,'pinch');
  assert.equal(c.update(detection([hand('point')],['Right']),450).primary.gesture,'idle');
-});
-check('An uncertain pose cannot release a charged camera nova',()=>{
- const a=makeApp();a.run("mode='camera'; cameraReady=true; hands=[{}]; lastDetection=1000; gesture='fist'; update(1.5); gesture='idle'; update(.05)");
- assert.equal(a.run('novaCooldown'),0);
- a.run('now=1500; lastDetection=1500; update(.05)');assert.equal(a.run('charge'),0);assert.equal(a.run('novaCooldown'),0);
-});
-check('A recognized open palm releases nova after the gesture transition',()=>{
- const a=makeApp();a.run("mode='camera'; cameraReady=true; hands=[{}]; lastDetection=1000; gesture='fist'; update(1.5); gesture='idle'; update(.05); now=1200; lastDetection=1200; gesture='palm'; update(.05)");
- assert.equal(a.run('novaCooldown'),5);
 });
 check('Four personal poses calibrate and reject an incorrect pose',()=>{
  const profile=new gestures.GestureCalibration();
@@ -97,9 +86,9 @@ check('Calibration ignores two-hand samples and blocks round start',()=>{
  a.run('processTracking(extra,3100); updateCalibrationClock(4300)');
  assert.equal(a.run('calibrationStep'),0);assert.equal(a.run('calibrationDraft.templates.length'),0);
 });
-check('Calibration wizard completes all four gestures with the same tracked hand',()=>{
+check('Calibration wizard completes both gestures with the same tracked hand',()=>{
  const a=makeApp();a.run("mode='camera'; cameraReady=true; state='setup'; now=1000");
- for(const [step,kind] of ['point','pinch','palm','fist'].entries()){
+ for(const [step,kind] of ['point','palm'].entries()){
   a.sandbox.frame=detection([hand(kind)],['Right']);
   a.run('processTracking(frame,now)');if(step===0)a.run('beginCalibration()');
   a.run('captureCalibration(); calibrationRecording.start=now+10; calibrationRecording.end=now+1210');
@@ -107,7 +96,7 @@ check('Calibration wizard completes all four gestures with the same tracked hand
   a.run('now+=300; processTracking(frame,now); updateCalibrationClock(now)');
   assert.equal(a.run('calibrationStep'),step+1);
  }
- assert.equal(a.run('handControls.calibration.templates.length'),4);assert.equal(a.run('calibrationDraft'),null);
+ assert.equal(a.run('handControls.calibration.templates.length'),2);assert.equal(a.run('calibrationDraft'),null);
 });
 // Actual MediaPipe model inference on Google's four public sample photos,
 // each tested as original, mirrored, and rotated 35 degrees. Images are not bundled.

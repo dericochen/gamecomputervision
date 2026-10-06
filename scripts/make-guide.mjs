@@ -96,6 +96,12 @@ function gesture(pdf,cx,cy,kind,s=1){
   handBase(pdf,cx,cy,s);
   for(const dx of [-16,-6,4,14])finger(pdf,cx+dx*s,cy-6*s,34*s,s);
   pdf.fill(...C.orange).roundRect(cx-26*s,cy-4*s,10*s,18*s,4*s,'f'); // thumb
+ }else if(kind==='bomb'){
+  pdf.fill(...C.ink).circle(cx,cy+6*s,20*s,'f');
+  pdf.fill(0.45,0.48,0.6).roundRect(cx+2*s,cy-20*s,12*s,8*s,2*s,'f');
+  pdf.save().lineWidth(3*s).stroke(0.85,0.7,0.42).line(cx+8*s,cy-20*s,cx+16*s,cy-30*s).restore();
+  pdf.fill(...C.gold).circle(cx+17*s,cy-32*s,5*s,'f');
+  pdf.fill(1,1,1).circle(cx-7*s,cy-1*s,4*s,'f');
  }else if(kind==='fist'){
   pdf.fill(...C.orangeSoft).roundRect(cx-18*s,cy-10*s,36*s,34*s,10*s,'f');
   for(const dx of [-12,-3,6,15])pdf.save().lineWidth(1.4*s).stroke(...C.orange).line(cx+dx*s,cy-8*s,cx+dx*s,cy+2*s).restore();
@@ -108,7 +114,7 @@ function gesture(pdf,cx,cy,kind,s=1){
 function pageBg(pdf){pdf.fill(...C.paper).rect(0,0,W,H,'f')}
 function footer(pdf,n){
  pdf.save().lineWidth(0.8).stroke(...C.line).line(MX,H-46,W-MX,H-46).restore();
- pdf.text(MX,H-40,'AI Hand Battle  ·  Vision Arena',{size:8,font:'Helvetica-Bold',color:C.blue});
+ pdf.text(MX,H-40,'Hand Battle  ·  Selamatkan Kampus!',{size:8,font:'Helvetica-Bold',color:C.blue});
  pdf.text(W-MX,H-40,'Halaman '+n,{size:8,color:C.grey,align:'right'});
  pdf.text(W/2,H-40,'Dipandu Vee',{size:8,color:C.orange,align:'center'});
 }
@@ -140,8 +146,8 @@ for(const [bx,by,bs] of [[70,60,0.8],[500,70,1.1],[120,180,0.7],[470,190,0.6]])
  pdf.poly([[bx+8*bs,by],[bx-7*bs,by+15*bs],[bx+bs,by+15*bs],[bx-bs,by+30*bs],[bx+14*bs,by+11*bs],[bx+2*bs,by+11*bs]],'f');
 pdf.restore();
 pdf.text(MX,60,'PANDUAN BERMAIN',{size:13,font:'Helvetica-Bold',color:C.cyan});
-pdf.text(MX,80,'AI HAND BATTLE',{size:40,font:'Helvetica-Bold',color:C.white});
-pdf.text(MX,128,'Vision Arena — kendalikan arena dengan gerakan tangan',{size:12,color:C.blueSoft});
+pdf.text(MX,80,'HAND BATTLE',{size:40,font:'Helvetica-Bold',color:C.white});
+pdf.text(MX,128,'Arahkan tanganmu, tembak virus, lindungi markas!',{size:12,color:C.blueSoft});
 pill(pdf,MX,150,'TEMA BINUS',C.orange,C.white);
 pill(pdf,MX+120,150,'60 DETIK',C.cyan,C.ink);
 pill(pdf,MX+230,150,'TANPA STIK',C.white,C.blue);
@@ -153,7 +159,7 @@ pdf.fill(...C.white).roundRect(MX,300,W-2*MX,150,16,'f');
 pdf.save().lineWidth(1).stroke(...C.line).roundRect(MX,300,W-2*MX,150,16,'S').restore();
 pdf.fill(...C.orange).roundRect(MX,300,8,150,4,'f');
 pdf.text(MX+28,322,'Apa ini?',{size:15,font:'Helvetica-Bold',color:C.blue});
-pdf.paragraph(MX+28,348,'AI Hand Battle adalah game kamera. Kameramu membaca gerakan tangan untuk membidik, menembak, memasang perisai, dan melepas serangan nova. Semua diproses di perangkatmu — video tidak direkam dan tidak diunggah. Lindungi "core" selama 60 detik, kumpulkan skor setinggi mungkin, dan rebut papan peringkat.',
+pdf.paragraph(MX+28,348,'Hand Battle adalah game kamera. Arahkan telunjuk untuk membidik — tembakan keluar otomatis. Buka telapak untuk perisai. Hati-hati, jangan menembak bom! Semua diproses di perangkatmu — video tidak direkam dan tidak diunggah. Lindungi markas selama 60 detik, kumpulkan skor setinggi mungkin, dan rebut papan peringkat.',
  {size:10.5,color:[0.2,0.26,0.32],width:W-2*MX-56,leading:15});
 // what you need
 pdf.fill(...C.panel).roundRect(MX,470,W-2*MX,120,16,'f');
@@ -196,15 +202,15 @@ footer(pdf,2);
 // ============================================================ PAGE 3 — GERAKAN TANGAN
 pdf.addPage();pageBg(pdf);
 pdf.fill(...C.blue).rect(0,0,W,96,'f');pdf.fill(...C.orange).rect(0,96,W,6,'f');
-pdf.text(MX,34,'2  ·  Empat gerakan inti',{size:22,font:'Helvetica-Bold',color:C.white});
+pdf.text(MX,34,'2  ·  Cara bermain',{size:22,font:'Helvetica-Bold',color:C.white});
 pdf.text(MX,70,'Angkat tangan bidik lebih dulu, telapak menghadap kamera.',{size:11,color:C.blueSoft});
 vee(pdf,520,52,0.5,'cheer');
 
 const moves=[
- ['point','Bidik','Telunjuk tegak, tiga jari dilipat. Geser tangan untuk menggerakkan lingkaran sasaran.',C.cyanDark],
- ['pinch','Energy Blast','Tempelkan ujung ibu jari ke ujung telunjuk; jari lain bebas. Tahan untuk menembak. Susah? Nyalakan Tembak otomatis.',C.orange],
+ ['point','Bidik','Tegakkan telunjuk dan geser tangan. Lingkaran sasaran ikut gerakan tanganmu.',C.cyanDark],
+ ['point','Tembak otomatis','Tidak perlu gerakan khusus! Begitu lingkaran menyentuh virus, tembakan keluar sendiri.',C.orange],
  ['palm','Shield','Buka kelima jari. Perisai menyala selama energi ada. Lepas telapak untuk mengisi ulang.',C.blue],
- ['fist','Nova','Kepalkan tangan 1,5 detik sampai READY, lalu buka telapak untuk melepas ledakan ke seluruh arena.',C.purple],
+ ['bomb','Awas Bom!','Lingkaran jadi merah di atas bom. Geser menjauh! Kalau bom tertembak, skor berkurang 300.',C.red],
 ];
 y=120;
 const cardW=(W-2*MX-20)/2, cardH=180;
@@ -240,7 +246,8 @@ const rows=[
  ['TROJAN','Berlapis baja, perlu 3 tembakan.','+150',C.purple],
  ['WORM','Pecah jadi dua bug saat hancur.','+50',C.cyanDark],
  ['BONUS EMAS','Melintas cepat. Pasti menjatuhkan power-up.','+400',C.gold],
- ['BOSS (detik 42)','Mega Virus 30 nyawa. Nova memberi 8 damage.','+3000',C.red],
+ ['BOSS (detik 42)','Raja Virus bermahkota, 30 nyawa.','+3000',C.red],
+ ['BOM','Jangan ditembak! Biarkan jatuh, aman.','-300',C.ink],
 ];
 rows.forEach((r,i)=>{
  const ry=y+i*30;
