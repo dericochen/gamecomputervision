@@ -2,6 +2,16 @@
 
 Game kamera 60 detik dengan bidik, energy blast, shield, nova, boss, dan power-up. Kamera diproses di perangkat, tanpa merekam atau mengunggah video. Tersedia sebagai **aplikasi desktop** (Windows, macOS, Linux) dan sebagai situs GitHub Pages.
 
+## Panduan bermain (PDF)
+
+Panduan bergambar siap cetak/baca di iPad: **[docs/Panduan-AI-Hand-Battle.pdf](docs/Panduan-AI-Hand-Battle.pdf)** (4 halaman, bertema BINUS, dipandu maskot "Vee"). Regenerasi dengan:
+
+```sh
+npm run guide   # atau: node scripts/make-guide.mjs
+```
+
+Maskot "Vee" adalah karakter orisinal untuk game ini, bukan logo atau maskot resmi BINUS.
+
 ## Langsung main dari CMD / terminal
 
 Butuh **Node.js 22+** (gratis di https://nodejs.org). Tidak perlu `npm install`.
