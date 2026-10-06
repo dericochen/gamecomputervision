@@ -1,0 +1,11 @@
+{
+  "name": "ai-hand-battle",
+  "version": "3.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Game kamera dengan bidik, energy blast, shield, nova, dan kalibrasi gestur.",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "test": "node --check dist/app.js && node --check dist/tracker-worker.js && node scripts/check.mjs && node scripts/regression.mjs"
+  }
+}
