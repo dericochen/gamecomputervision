@@ -96,6 +96,12 @@ function gesture(pdf,cx,cy,kind,s=1){
   handBase(pdf,cx,cy,s);
   for(const dx of [-16,-6,4,14])finger(pdf,cx+dx*s,cy-6*s,34*s,s);
   pdf.fill(...C.orange).roundRect(cx-26*s,cy-4*s,10*s,18*s,4*s,'f'); // thumb
+ }else if(kind==='bomb'){
+  pdf.fill(...C.ink).circle(cx,cy+6*s,20*s,'f');
+  pdf.fill(0.45,0.48,0.6).roundRect(cx+2*s,cy-20*s,12*s,8*s,2*s,'f');
+  pdf.save().lineWidth(3*s).stroke(0.85,0.7,0.42).line(cx+8*s,cy-20*s,cx+16*s,cy-30*s).restore();
+  pdf.fill(...C.gold).circle(cx+17*s,cy-32*s,5*s,'f');
+  pdf.fill(1,1,1).circle(cx-7*s,cy-1*s,4*s,'f');
  }else if(kind==='fist'){
   pdf.fill(...C.orangeSoft).roundRect(cx-18*s,cy-10*s,36*s,34*s,10*s,'f');
   for(const dx of [-12,-3,6,15])pdf.save().lineWidth(1.4*s).stroke(...C.orange).line(cx+dx*s,cy-8*s,cx+dx*s,cy+2*s).restore();
@@ -153,7 +159,7 @@ pdf.fill(...C.white).roundRect(MX,300,W-2*MX,150,16,'f');
 pdf.save().lineWidth(1).stroke(...C.line).roundRect(MX,300,W-2*MX,150,16,'S').restore();
 pdf.fill(...C.orange).roundRect(MX,300,8,150,4,'f');
 pdf.text(MX+28,322,'Apa ini?',{size:15,font:'Helvetica-Bold',color:C.blue});
-pdf.paragraph(MX+28,348,'Hand Battle adalah game kamera. Arahkan telunjuk untuk membidik — tembakan keluar otomatis. Buka telapak untuk perisai dan kepalkan tangan untuk nova. Semua diproses di perangkatmu — video tidak direkam dan tidak diunggah. Lindungi markas selama 60 detik, kumpulkan skor setinggi mungkin, dan rebut papan peringkat.',
+pdf.paragraph(MX+28,348,'Hand Battle adalah game kamera. Arahkan telunjuk untuk membidik — tembakan keluar otomatis. Buka telapak untuk perisai. Hati-hati, jangan menembak bom! Semua diproses di perangkatmu — video tidak direkam dan tidak diunggah. Lindungi markas selama 60 detik, kumpulkan skor setinggi mungkin, dan rebut papan peringkat.',
  {size:10.5,color:[0.2,0.26,0.32],width:W-2*MX-56,leading:15});
 // what you need
 pdf.fill(...C.panel).roundRect(MX,470,W-2*MX,120,16,'f');
@@ -204,7 +210,7 @@ const moves=[
  ['point','Bidik','Tegakkan telunjuk dan geser tangan. Lingkaran sasaran ikut gerakan tanganmu.',C.cyanDark],
  ['point','Tembak otomatis','Tidak perlu gerakan khusus! Begitu lingkaran menyentuh virus, tembakan keluar sendiri.',C.orange],
  ['palm','Shield','Buka kelima jari. Perisai menyala selama energi ada. Lepas telapak untuk mengisi ulang.',C.blue],
- ['fist','Nova','Kepalkan tangan 1,5 detik sampai READY, lalu buka telapak untuk melepas ledakan ke seluruh arena.',C.purple],
+ ['bomb','Awas Bom!','Lingkaran jadi merah di atas bom. Geser menjauh! Kalau bom tertembak, skor berkurang 300.',C.red],
 ];
 y=120;
 const cardW=(W-2*MX-20)/2, cardH=180;
@@ -240,7 +246,8 @@ const rows=[
  ['TROJAN','Berlapis baja, perlu 3 tembakan.','+150',C.purple],
  ['WORM','Pecah jadi dua bug saat hancur.','+50',C.cyanDark],
  ['BONUS EMAS','Melintas cepat. Pasti menjatuhkan power-up.','+400',C.gold],
- ['BOSS (detik 42)','Mega Virus 30 nyawa. Nova memberi 8 damage.','+3000',C.red],
+ ['BOSS (detik 42)','Raja Virus bermahkota, 30 nyawa.','+3000',C.red],
+ ['BOM','Jangan ditembak! Biarkan jatuh, aman.','-300',C.ink],
 ];
 rows.forEach((r,i)=>{
  const ry=y+i*30;

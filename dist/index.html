@@ -16,7 +16,7 @@
 <div class="workspace">
 <section class="game-col" aria-label="Arena permainan">
 <div class="arena" id="arena">
-<canvas id="game" width="1280" height="720" tabindex="0" aria-label="Arena Hand Battle. Latihan mouse: arahkan kursor ke virus untuk menembak otomatis, S untuk perisai, tahan Spasi untuk nova."></canvas>
+<canvas id="game" width="1280" height="720" tabindex="0" aria-label="Arena Hand Battle. Latihan mouse: arahkan kursor ke virus untuk menembak otomatis, hindari bom, S untuk perisai."></canvas>
 <video id="camera" autoplay playsinline muted hidden></video>
 <div class="hud">
  <div class="hud-box"><span class="hud-label">SKOR</span><strong id="score">00000</strong><span id="multiplier" class="multiplier"></span></div>
@@ -27,7 +27,7 @@
  <div class="start-content">
   <span class="sticker">Tanpa stik · tanpa sentuh</span>
   <h2>Arahkan.<br><span>Tembak.</span> Menang!</h2>
-  <p>Virus menyerbu kampus! Arahkan telunjukmu ke virus — tembakan keluar sendiri. Buka telapak untuk perisai, kepalkan tangan untuk ledakan nova.</p>
+  <p>Virus menyerbu kampus! Arahkan telunjukmu ke virus — tembakan keluar sendiri. Hati-hati: jangan tembak <b>bom</b>, poinmu bisa berkurang! Buka telapak untuk perisai.</p>
   <div class="start-actions"><button class="primary big" id="camera-start">▶ Main pakai kamera</button><button class="secondary" id="demo-start">Latihan pakai mouse</button></div>
   <p class="small-note">Kamera hanya membaca gerakan tangan di perangkat ini. Tidak direkam.</p>
  </div>
@@ -46,7 +46,6 @@
 </div></div>
 <div class="bottom-hud">
  <span id="gesture-display" class="status-pill">MENUNGGU PEMAIN</span>
- <div class="energy"><label for="charge">NOVA</label><progress id="charge" value="0" max="1"></progress><span id="charge-label">0%</span></div>
  <span id="powerup-status" class="powerup-status"></span>
  <div class="energy shield-energy"><label for="shield">PERISAI</label><progress id="shield" value="100" max="100"></progress></div>
  <button id="pause" class="chip-btn hidden">Jeda</button>
@@ -56,13 +55,13 @@
 </div>
 <section id="setup-overlay" class="setup-panel hidden" aria-label="Pemanasan sebelum main">
  <div class="setup-heading"><div><span class="eyebrow">PEMANASAN</span><h2 id="setup-title">Menyiapkan kamera</h2><p id="setup-info" role="status">Izinkan kamera untuk melanjutkan.</p></div><span id="setup-live" class="pose-badge">BELUM ADA TANGAN</span></div>
- <div class="gesture-checks" aria-label="Gerakan yang sudah dicoba"><span id="test-point">☝ Bidik</span><span id="test-palm">✋ Perisai</span><span id="test-fist">✊ Nova</span></div>
+ <div class="gesture-checks" aria-label="Gerakan yang sudah dicoba"><span id="test-point">☝ Bidik</span><span id="test-palm">✋ Perisai</span></div>
  <p class="setup-tip">Arahkan telunjuk ke layar: lingkaran ikut tanganmu dan <b>menembak sendiri</b> saat mengenai virus. Yang main adalah orang paling dekat dengan kamera — tangan penonton di belakang tidak dihitung.</p>
  <div class="setup-buttons"><button class="primary big" id="round-start" disabled>▶ Mulai main (60 detik)</button><button class="secondary hidden" id="camera-retry">Coba kamera lagi</button><button class="text-btn" id="setup-back">Kembali</button></div>
  <details class="more"><summary>Gerakan kurang terbaca? Sesuaikan dengan tanganmu</summary>
-  <div class="calibration-actions"><button id="calibration-start" class="secondary" disabled>Sesuaikan gerakan</button><button id="calibration-reset" class="text-btn hidden">Pakai setelan standar</button><span id="calibration-status" role="status">Rekam bentuk tanganmu sendiri untuk bidik, perisai, dan nova.</span></div>
+  <div class="calibration-actions"><button id="calibration-start" class="secondary" disabled>Sesuaikan gerakan</button><button id="calibration-reset" class="text-btn hidden">Pakai setelan standar</button><span id="calibration-status" role="status">Rekam bentuk tanganmu sendiri untuk bidik dan perisai.</span></div>
   <div id="calibration-panel" class="calibration-panel hidden">
-   <div class="calibration-example"><span id="calibration-icon" aria-hidden="true">☝</span><div><span id="calibration-step" class="eyebrow">LANGKAH 1 / 3</span><h3 id="calibration-title">Bidik</h3><p id="calibration-help"></p></div></div>
+   <div class="calibration-example"><span id="calibration-icon" aria-hidden="true">☝</span><div><span id="calibration-step" class="eyebrow">LANGKAH 1 / 2</span><h3 id="calibration-title">Bidik</h3><p id="calibration-help"></p></div></div>
    <p id="calibration-info" role="status">Gunakan satu tangan yang sama untuk semua gerakan.</p>
    <progress id="calibration-progress" value="0" max="1" aria-label="Kemajuan perekaman gerakan"></progress>
    <div class="calibration-buttons"><button id="calibration-capture" class="primary">Rekam gerakan</button><button id="calibration-cancel" class="secondary">Batal</button></div>
@@ -70,11 +69,11 @@
  </details>
 </section>
 <div class="arena-footer"><span id="mode-label">MODE KAMERA</span><p id="status" role="status">Siap saat kamu siap.</p></div>
-<div class="demo-controls hidden" id="demo-controls"><p>Arahkan kursor ke virus — tembakan otomatis.</p><button id="demo-shield">Perisai <kbd>S</kbd></button><button id="demo-charge">Tahan Nova <kbd>Spasi</kbd></button></div>
+<div class="demo-controls hidden" id="demo-controls"><p>Arahkan kursor ke virus — tembakan otomatis. Jangan diamkan kursor di atas bom!</p><button id="demo-shield">Perisai <kbd>S</kbd></button></div>
 <section class="instructions"><h2>Cara main</h2><div class="gesture-grid">
  <div class="move m1"><span class="gesture-icon">☝</span><h3>Bidik &amp; tembak</h3><p>Arahkan telunjuk. Saat lingkaran menyentuh virus, tembakan keluar sendiri.</p></div>
  <div class="move m2"><span class="gesture-icon">✋</span><h3>Perisai</h3><p>Buka telapak (boleh tangan kedua). Turunkan untuk mengisi energinya.</p></div>
- <div class="move m3"><span class="gesture-icon">✊</span><h3>Nova</h3><p>Kepalkan sampai SIAP, lalu buka telapak: semua virus meledak!</p></div>
+ <div class="move m3"><span class="gesture-icon">💣</span><h3>Awas bom!</h3><p>Lingkaran jadi merah di atas bom. Geser menjauh — kalau kena, skor berkurang 300.</p></div>
 </div></section>
 </section>
 <aside class="side-col">
@@ -90,7 +89,7 @@
   <p class="board-note">Skor hari ini, tersimpan di perangkat ini. <button id="board-reset" class="link-btn">Reset</button></p>
  </section>
  <section class="card points"><h2>Poin</h2>
-  <div><span>Virus</span><strong>100 + combo</strong></div><div><span>Virus berhelm (3×)</span><strong>+150</strong></div><div><span>Bintang emas</span><strong>+400</strong></div><div><span>Raja Virus</span><strong>+3000</strong></div><div><span>Tahan dengan perisai</span><strong>+25</strong></div><div><span>Combo 12</span><strong>FEVER ×2</strong></div>
+  <div><span>Virus</span><strong>100 + combo</strong></div><div><span>Virus berhelm (3×)</span><strong>+150</strong></div><div><span>Bintang emas</span><strong>+400</strong></div><div><span>Raja Virus</span><strong>+3000</strong></div><div><span>Tahan dengan perisai</span><strong>+25</strong></div><div><span>💣 Bom tertembak</span><strong class="minus">−300</strong></div><div><span>Combo 12</span><strong>FEVER ×2</strong></div>
  </section>
 </aside>
 </div>

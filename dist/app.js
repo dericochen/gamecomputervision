@@ -6,26 +6,30 @@ const $=id=>{let el=elementCache.get(id);if(!el){el=document.getElementById(id);
 function setText(id,value){value=String(value);if(textCache.get(id)!==value){textCache.set(id,value);$(id).textContent=value}}
 function setValue(id,value){value=Math.round(value*100)/100;if(valueCache.get(id)!==value){valueCache.set(id,value);$(id).value=value}}
 const canvas=$('game'),ctx=canvas.getContext('2d'),map=$('hand-map'),mctx=map.getContext('2d'),video=$('camera');
-const W=1280,H=720,CORE_Y=H-78,labels={pinch:'BIDIK & TEMBAK',point:'BIDIK & TEMBAK',palm:'PERISAI AKTIF',fist:'MENGISI NOVA',idle:'BIDIK & TEMBAK'};
-let state='menu',mode='camera',boardMode='camera',worker,stream,cameraReady=false,workerBusy=false,workerReady=false,session=0,initTimer,frameTimer,lastInference=0,lastVideoTime=-1,lastDetection=0,landmarks=[],trackingRates=[],last=performance.now(),now=last,elapsed=0,remaining=60,score=0,combo=0,maxCombo=0,hits=0,blocked=0,health=5,shield=100,charge=0,novaCooldown=0,lastShot=-1e6,spawnTimer=0,countdown=0,autoPaused=false,shielding=false,manualShield=false,manualCharge=false,manualFire=false,aim={x:640,y:390},hands=[],gesture='idle',enemies=[],particles=[],beams=[],floaters=[],waves=[],powerups=[],saved=false,annUntil=0,annText='',sound=!!desktop,audio,keys=new Set(),roundCompleted=false;
-let feverUntil=0,rapidUntil=0,spreadUntil=0,shots=0,shotHits=0,bossSpawned=false,lastWave=1,lastBeep=null,shake=0,holdProgress=0,resultAt=0,inferenceAvg=30,delegateName='—',loopErrors=0;
+const W=1280,H=720,CORE_Y=H-78,labels={pinch:'BIDIK & TEMBAK',point:'BIDIK & TEMBAK',palm:'PERISAI AKTIF',fist:'BIDIK & TEMBAK',idle:'BIDIK & TEMBAK'};
+let state='menu',mode='camera',boardMode='camera',worker,stream,cameraReady=false,workerBusy=false,workerReady=false,session=0,initTimer,frameTimer,lastInference=0,lastVideoTime=-1,lastDetection=0,landmarks=[],trackingRates=[],last=performance.now(),now=last,elapsed=0,remaining=60,score=0,combo=0,maxCombo=0,hits=0,blocked=0,health=5,shield=100,lastShot=-1e6,spawnTimer=0,countdown=0,autoPaused=false,shielding=false,manualShield=false,manualFire=false,aim={x:640,y:390},hands=[],gesture='idle',enemies=[],particles=[],beams=[],floaters=[],powerups=[],saved=false,annUntil=0,annText='',sound=!!desktop,audio,keys=new Set(),roundCompleted=false;
+let bombsHit=0,feverUntil=0,rapidUntil=0,spreadUntil=0,shots=0,shotHits=0,bossSpawned=false,lastWave=1,lastBeep=null,shake=0,holdProgress=0,resultAt=0,inferenceAvg=30,delegateName='—',loopErrors=0;
 let stage=readStage();
 // Shooting is automatic: it fires only while the reticle is over an enemy or power-up.
-// Shield/nova poses (even while still being confirmed) never shoot.
-function attackPose(){return ['fist','palm'].includes(gesture)||['fist','palm'].includes(latestControls?.primary?.raw)}
-function targetUnderAim(){for(const e of enemies)if(!e.dead&&Math.hypot(e.x-aim.x,e.y-aim.y)<e.r+40)return true;for(const p of powerups)if(!p.taken&&Math.hypot(p.x-aim.x,p.y-aim.y)<p.r+40)return true;return false}
+// The shield pose (even while still being confirmed) never shoots.
+function attackPose(){return gesture==='palm'||latestControls?.primary?.raw==='palm'}
+// Bombs only count as a target after the ring has rested on them for a moment,
+// so brushing past one is safe but parking on it costs points.
+const BOMB_ARM=.3,BOMB_PENALTY=300;
+function shootable(e){return !e.dead&&(e.kind!=='BOMB'||(e.hover??0)>=BOMB_ARM)}
+function bombUnderAim(){let best=null;for(const e of enemies)if(!e.dead&&e.kind==='BOMB'&&Math.hypot(e.x-aim.x,e.y-aim.y)<e.r+40&&(!best||e.hover>best.hover))best=e;return best}
+function targetUnderAim(){for(const e of enemies)if(shootable(e)&&Math.hypot(e.x-aim.x,e.y-aim.y)<e.r+40)return true;for(const p of powerups)if(!p.taken&&Math.hypot(p.x-aim.x,p.y-aim.y)<p.r+40)return true;return false}
 const rand=(a,b)=>a+Math.random()*(b-a),clamp=(x,a,b)=>Math.min(b,Math.max(a,x)),pick=list=>list[Math.floor(Math.random()*list.length)];
 // numHands 4: spectators cannot crowd the player's hands out of the detector.
 const CROWD_HANDS=4;
 const handControls=new HandControls();
-const heldActions={fire:new Set(),shield:new Set(),charge:new Set()};
-let novaReleaseAt=null,calibrationDraft=null,calibrationStep=0,calibrationRecording=null,latestControls=null;
+const heldActions={fire:new Set(),shield:new Set()};
+let calibrationDraft=null,calibrationStep=0,calibrationRecording=null,latestControls=null;
 const triedGestures=new Set();
-const poseNames={point:'BIDIK',pinch:'BIDIK',palm:'PERISAI',fist:'NOVA',idle:'BIDIK'};
+const poseNames={point:'BIDIK',pinch:'BIDIK',palm:'PERISAI',fist:'BIDIK',idle:'BIDIK'};
 const calibrationSteps=[
  {kind:'point',icon:'☝',name:'Bidik',help:'Tegakkan telunjuk, jari lain dilipat. Geser tangan untuk menggerakkan lingkaran.'},
  {kind:'palm',icon:'✋',name:'Perisai',help:'Buka kelima jari. Hadapkan telapak ke kamera dan beri jarak antarjari.'},
- {kind:'fist',icon:'✊',name:'Nova',help:'Kepalkan keempat jari. Letakkan ibu jari di luar kepalan, lalu tahan.'}
 ];
 // Enemy catalogue. Points on kill = 100 + combo bonus + kind bonus.
 const KINDS={
@@ -33,12 +37,13 @@ const KINDS={
  BUG:{sides:4,color:'#ff9f1c',hp:1,r:[18,24],v:[100,130],sway:70,bonus:50},
  TROJAN:{sides:8,color:'#9b7bff',hp:3,r:[38,44],v:[40,52],sway:14,bonus:150},
  WORM:{sides:5,color:'#4be3a8',hp:1,r:[28,32],v:[58,78],sway:34,bonus:50,split:true},
+ BOMB:{sides:0,color:'#2b2f4a',hp:1,r:[24,27],v:[58,76],sway:28,bonus:0,bomb:true},
  GOLD:{sides:4,color:'#ffd23f',hp:1,r:[22,22],v:[0,0],sway:0,bonus:400,gold:true},
  BOSS:{sides:12,color:'#e8446b',hp:30,r:[72,72],v:[26,26],sway:260,bonus:3000,boss:true}
 };
 const WAVE_MIX={1:['VIRUS','VIRUS','VIRUS','BUG'],2:['VIRUS','VIRUS','BUG','TROJAN','WORM'],3:['VIRUS','BUG','BUG','TROJAN','WORM','WORM']};
 const POWERUPS={RAPID:{icon:'⚡',name:'TEMBAK CEPAT',color:'#ffd23f'},CHAIN:{icon:'✦',name:'TEMBAK BERANTAI',color:'#c3a6ff'},REPAIR:{icon:'♥',name:'NYAWA +1',color:'#ff8fb1'},SHIELD:{icon:'◈',name:'PERISAI PENUH',color:'#7fe0ff'}};
-let mainTracker=null,mainTracking=false,trackerFallback=false,bitmapFailures=0,cameraShield=false,gesturesArmed=true,wasCharging=false,shieldLocked=false,trackingRecoveredAt=null;
+let mainTracker=null,mainTracking=false,trackerFallback=false,bitmapFailures=0,cameraShield=false,gesturesArmed=true,shieldLocked=false,trackingRecoveredAt=null;
 const stars=Array.from({length:90},()=>({x:Math.random()*W,y:Math.random()*H,s:Math.random()<.15?2:1,v:rand(8,40)}));
 let backdrop=null;
 function readStage(){try{const v=localStorage.getItem('vision-arena:stage');return v===null?!!desktop:v==='1'}catch{return !!desktop}}
@@ -64,7 +69,7 @@ function musicTick(){
 function overlays(id){for(const x of ['start-overlay','setup-overlay','pause-overlay','result-overlay'])show(x,x===id)}
 function setState(s){state=s;handControls.roundLock=mode==='camera'&&['playing','countdown','paused'].includes(s);$('arena').classList.toggle('is-setup',s==='setup');document.body?.classList.toggle('in-round',['playing','countdown','paused'].includes(s));show('pause',s==='playing'||s==='countdown');show('demo-controls',mode==='demo'&&['playing','countdown','paused'].includes(s));$('mode-label').textContent=mode==='demo'?'LATIHAN MOUSE':'MODE KAMERA';holdProgress=0}
 function stopCamera(){
- cancelCalibration();latestControls=null;novaReleaseAt=null;
+ cancelCalibration();latestControls=null;
  session++;clearTimeout(initTimer);clearTimeout(frameTimer);worker?.terminate();worker=null;
  try{mainTracker?.close()}catch{}mainTracker=null;mainTracking=trackerFallback=false;
  stream?.getTracks().forEach(t=>t.stop());stream=null;video.srcObject=null;
@@ -74,7 +79,7 @@ function stopCamera(){
  setText('feed-status','KAMERA BELUM AKTIF');$('round-start').disabled=true;$('calibration-start').disabled=true;updateGestureFeedback(null);drawMap();
 }
 function cameraFailure(message){
- stopCamera();resetInputs();charge=0;wasCharging=false;shielding=false;
+ stopCamera();resetInputs();shielding=false;
  $('setup-title').textContent='Kamera belum siap';$('setup-info').textContent=message;$('status').textContent=message;show('camera-retry');
  if(state!=='result'&&state!=='menu'){setState('setup');overlays('setup-overlay');announce('')}
 }
@@ -98,9 +103,8 @@ function processTracking(data,at=performance.now()){
   lastDetection=at;trackingRecoveredAt??=at;
   aim.x=clamp(controls.aim.x*W,20,W-20);aim.y=clamp(controls.aim.y*H,100,H-80);
   gesture=controls.primary.gesture;cameraShield=controls.shield;
-  // Attacks re-arm once the hand is not pinching or fisting (any other shape is fine).
-  if(!['pinch','fist'].includes(controls.primary.raw))gesturesArmed=true;
- }else{gesture='idle';cameraShield=false;trackingRecoveredAt=null;charge=0;wasCharging=false}
+  gesturesArmed=true;
+ }else{gesture='idle';cameraShield=false;trackingRecoveredAt=null}
  updateGestureFeedback(controls);
  if(state==='setup'){
   $('round-start').disabled=!hands.length||!!calibrationDraft;
@@ -118,7 +122,7 @@ function updateGestureFeedback(controls){
  const pending=primary&&current==='idle'&&primary.raw!=='idle';
  setText('setup-live',pending?'TAHAN · '+poseNames[primary.raw]:name);
  setText('gesture-live',pending?'MENGENALI '+poseNames[primary.raw]:name);
- const hints={point:'Mantap! Arahkan lingkaran ke virus, tembakan keluar sendiri.',pinch:'Mantap! Arahkan lingkaran ke virus, tembakan keluar sendiri.',palm:'Perisai aktif! Turunkan telapak untuk mengisi energinya lagi.',fist:'Mengisi nova… tahan sampai SIAP, lalu buka telapak.',idle:'Arahkan telunjuk ke layar. Lingkaran ikut tanganmu dan menembak otomatis.'};
+ const hints={point:'Mantap! Arahkan lingkaran ke virus, tembakan keluar sendiri.',pinch:'Mantap! Arahkan lingkaran ke virus, tembakan keluar sendiri.',palm:'Perisai aktif! Turunkan telapak untuk mengisi energinya lagi.',fist:'Mantap! Arahkan lingkaran ke virus, tembakan keluar sendiri.',idle:'Arahkan telunjuk ke layar. Lingkaran ikut tanganmu dan menembak otomatis.'};
  setText('gesture-detail',primary?(pending?'Tahan sebentar…':hints[current]):'Tunjukkan seluruh tangan di tempat yang terang.');
  const second=controls?.partner;
  setText('secondary-gesture',second?'Tangan kedua: '+poseNames[second.gesture]:'');
@@ -180,7 +184,7 @@ function cancelCalibration(notify=false){
 function drawGesturePractice(){
  ctx.save();
  for(const x of [W*.25,W*.5,W*.75]){
-  const y=H*.43,hit=trackingFresh()&&!['palm','fist'].includes(gesture)&&Math.hypot(aim.x-x,aim.y-y)<75;
+  const y=H*.43,hit=trackingFresh()&&gesture!=='palm'&&Math.hypot(aim.x-x,aim.y-y)<75;
   ctx.beginPath();ctx.arc(x,y,46,0,Math.PI*2);ctx.fillStyle=hit?'#ffd23f':'#ffffffcc';ctx.fill();ctx.lineWidth=5;ctx.strokeStyle=OUTLINE;ctx.stroke();
   ctx.beginPath();ctx.arc(x,y,26,0,Math.PI*2);ctx.fillStyle=hit?'#ff8a1f':'#ff6b6b';ctx.fill();ctx.stroke();
   ctx.beginPath();ctx.arc(x,y,9,0,Math.PI*2);ctx.fillStyle='#fff';ctx.fill();ctx.stroke();
@@ -199,7 +203,7 @@ function trackerOptions(){return {numHands:CROWD_HANDS,minHandDetectionConfidenc
 async function useMainTracker(generation){
  if(generation!==session||trackerFallback)return;
  trackerFallback=true;clearTimeout(initTimer);clearTimeout(frameTimer);worker?.terminate();worker=null;workerReady=workerBusy=cameraReady=false;
- hands=[];landmarks=[];gesture='idle';cameraShield=false;lastDetection=-Infinity;trackingRecoveredAt=null;charge=0;wasCharging=false;
+ hands=[];landmarks=[];gesture='idle';cameraShield=false;lastDetection=-Infinity;trackingRecoveredAt=null;
  $('setup-info').textContent='Menyesuaikan pelacak dengan perangkatmu…';$('status').textContent='Menyesuaikan pelacak tangan. Permainan dijeda sementara.';
  initTimer=setTimeout(()=>{if(generation===session)cameraFailure('Pelacak belum selesai dimuat. Pilih Coba kamera lagi.')},45000);
  try{
@@ -255,11 +259,11 @@ async function requestFrame(){
   else if(++bitmapFailures>=3)void useMainTracker(generation);
  }
 }
-function resetRoundEffects(){enemies=[];particles=[];beams=[];waves=[];floaters=[];powerups=[];feverUntil=rapidUntil=spreadUntil=0;shots=shotHits=0;bossSpawned=false;lastWave=1;lastBeep=null;shake=0;holdProgress=0;$('clock').classList.remove('urgent')}
+function resetRoundEffects(){enemies=[];particles=[];beams=[];floaters=[];powerups=[];feverUntil=rapidUntil=spreadUntil=0;shots=shotHits=bombsHit=0;bossSpawned=false;lastWave=1;lastBeep=null;shake=0;holdProgress=0;$('clock').classList.remove('urgent')}
 function startRound(){
  if(mode==='camera'&&(!trackingFresh()||calibrationDraft))return;
- resetInputs();score=combo=maxCombo=hits=blocked=0;health=5;shield=100;shieldLocked=false;charge=0;wasCharging=false;novaReleaseAt=null;gesturesArmed=mode==='demo'||!['pinch','fist'].includes(gesture);
- elapsed=0;remaining=60;novaCooldown=0;spawnTimer=.2;countdown=3;resetRoundEffects();shielding=false;
+ resetInputs();score=combo=maxCombo=hits=blocked=0;health=5;shield=100;shieldLocked=false;gesturesArmed=true;
+ elapsed=0;remaining=60;spawnTimer=.2;countdown=3;resetRoundEffects();shielding=false;
  if(mode==='demo')aim={x:640,y:390};saved=false;roundCompleted=false;lastShot=-1e6;autoPaused=false;overlays(null);setState('countdown');
  $('status').textContent=mode==='camera'?'Arahkan lingkaran ke virus, tembakan keluar sendiri. Tangan kedua boleh membuka perisai.':'Latihan mouse: arahkan kursor ke virus. Skor dipisah dari mode kamera.';
  canvas.focus({preventScroll:true});$('save-info').textContent='';$('save-score').reset();$('player-name').setCustomValidity('');show('save-score');updateHUD();
@@ -268,7 +272,7 @@ function enterDemo(){stopCamera();mode='demo';boardMode='demo';renderBoard();sta
 function pauseGame(auto=false){
  if(state==='paused'){if(!auto){autoPaused=false;show('resume');$('pause-info').textContent='Waktu berhenti sampai kamu melanjutkan.'}return}
  if(!['playing','countdown'].includes(state))return;
- autoPaused=auto;setState('paused');overlays('pause-overlay');resetInputs();charge=0;wasCharging=false;novaReleaseAt=null;shielding=false;gesturesArmed=false;
+ autoPaused=auto;setState('paused');overlays('pause-overlay');resetInputs();shielding=false;gesturesArmed=false;
  $('pause-reason').textContent=auto?'TANGAN HILANG':'RONDE DIJEDA';$('pause-title').textContent=auto?'Tunjukkan tanganmu lagi.':'Ambil napas dulu.';
  $('pause-info').textContent=auto?'Waktu dan ancaman berhenti. Pemain utama perlu berdiri paling dekat dengan kamera.':'Waktu berhenti sampai kamu melanjutkan.';show('resume',!auto);
  if(!auto)$('resume').focus({preventScroll:true});
@@ -277,26 +281,33 @@ function resumeGame(){
  if(state!=='paused'||document.hidden)return;
  if(mode==='camera'&&!trackingFresh()){$('pause-info').textContent='Tunjukkan tangan ke kamera untuk melanjutkan.';return}
  autoPaused=false;resetInputs();setState(countdown>0?'countdown':'playing');overlays(null);canvas.focus({preventScroll:true});
- if(mode==='camera')$('status').textContent='Lanjut! Buka kepalan dulu, lalu arahkan lagi ke virus.';
+ if(mode==='camera')$('status').textContent='Lanjut! Arahkan lagi ke virus.';
 }
-function goHome(){stopCamera();resetInputs();mode='camera';boardMode='camera';setState('menu');overlays('start-overlay');show('demo-controls',false);$('mode-label').textContent='MODE KAMERA';$('status').textContent='Siap saat kamu siap.';announce('',0);annUntil=0;resetRoundEffects();score=0;combo=0;health=5;remaining=60;charge=0;shield=100;shieldLocked=false;wasCharging=false;shielding=false;roundCompleted=false;saved=false;gesture='idle';renderBoard();updateHUD()}
+function goHome(){stopCamera();resetInputs();mode='camera';boardMode='camera';setState('menu');overlays('start-overlay');show('demo-controls',false);$('mode-label').textContent='MODE KAMERA';$('status').textContent='Siap saat kamu siap.';announce('',0);annUntil=0;resetRoundEffects();score=0;combo=0;health=5;remaining=60;shield=100;shieldLocked=false;shielding=false;roundCompleted=false;saved=false;gesture='idle';renderBoard();updateHUD()}
 function burst(x,y,color,n=20,speed=330){n=Math.min(n,Math.max(0,700-particles.length));for(let i=0;i<n;i++){const a=rand(0,Math.PI*2),v=rand(80,speed);particles.push({x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,life:rand(.3,.7),color})}}
 const kindOf=e=>KINDS[e.kind]??KINDS.VIRUS;
 function makeEnemy(kind,x,y,extra={}){const k=KINDS[kind],wave=waveAt(elapsed);return {x,y,startX:x,v:rand(...k.v)+(k.boss||k.gold?0:wave*17),r:rand(...k.r),spin:rand(0,6.28),age:0,dead:false,kind,hp:k.hp,maxHp:k.hp,sway:k.sway,flash:0,...extra}}
 function dropPowerup(x,y){const options=Object.keys(POWERUPS).filter(k=>k!=='REPAIR'||health<5);powerups.push({x,y,kind:pick(options),life:7,r:26,age:0})}
-function destroy(enemy,points,nova=false){
+function destroy(enemy,points){
  if(enemy.dead)return;enemy.dead=true;const k=kindOf(enemy),gained=Math.round(points*mult());score+=gained;hits++;
- if(!nova){combo++;maxCombo=Math.max(maxCombo,combo)}
+ combo++;maxCombo=Math.max(maxCombo,combo);
  floaters.push({x:enemy.x,y:enemy.y,text:'+'+gained,life:.7,color:k.boss||k.gold?'#ffd23f':fever()?'#ff8fb1':'#ffffff',big:k.boss||k.gold});
- burst(enemy.x,enemy.y,nova?'#ffd23f':k.color,k.boss?120:20,k.boss?600:330);tone(680+combo*15,.08,'triangle');
+ burst(enemy.x,enemy.y,k.color,k.boss?120:20,k.boss?600:330);tone(680+combo*15,.08,'triangle');
  if(k.boss){shake=Math.max(shake,22);announce('RAJA VIRUS KALAH!',2);tone(90,.9,'sawtooth',.09);for(let i=0;i<3;i++)dropPowerup(enemy.x+(i-1)*90,enemy.y)}
  if(k.split&&!enemy.mini)for(const dx of [-1,1])enemies.push(makeEnemy('BUG',enemy.x+dx*20,enemy.y,{r:16,mini:true,startX:enemy.x+dx*40}));
- if(!nova&&(k.gold||Math.random()<(k.hp>1?.35:.07)))dropPowerup(enemy.x,enemy.y);
- if(!nova&&combo>0&&combo%12===0){feverUntil=now+8000;announce('FEVER ×2!',1.4);tone(990,.3,'square',.05)}
- else if(combo>0&&combo%5===0&&!nova)announce('COMBO ×'+combo,1);
+ if((k.gold||Math.random()<(k.hp>1?.35:.07)))dropPowerup(enemy.x,enemy.y);
+ if(combo>0&&combo%12===0){feverUntil=now+8000;announce('FEVER ×2!',1.4);tone(990,.3,'square',.05)}
+ else if(combo>0&&combo%5===0)announce('COMBO ×'+combo,1);
 }
 // One blast deals one damage; armored enemies flash until destroyed.
+function explodeBomb(b){
+ b.dead=true;bombsHit++;const lost=Math.min(score,BOMB_PENALTY);score-=lost;combo=0;feverUntil=0;shake=Math.max(shake,20);
+ floaters.push({x:b.x,y:b.y,text:'-'+BOMB_PENALTY,life:1,color:'#ff5c8a',big:true});
+ burst(b.x,b.y,'#ff8a1f',60,520);burst(b.x,b.y,'#2b2f4a',30,300);burst(b.x,b.y,'#ffd23f',30,420);
+ announce('BOM! −'+BOMB_PENALTY,1.2);tone(60,.6,'sawtooth',.1);tone(110,.35,'square',.06);
+}
 function hit(enemy){
+ if(enemy.kind==='BOMB'){explodeBomb(enemy);return}
  enemy.hp=(enemy.hp??1)-1;
  if(enemy.hp>0){enemy.flash=.09;const gained=20*mult();score+=gained;floaters.push({x:enemy.x,y:enemy.y-enemy.r,text:'+'+gained,life:.5,color:'#ffffff'});burst(enemy.x,enemy.y,kindOf(enemy).color,6);tone(520,.05,'square',.03);if(enemy.boss)shake=Math.max(shake,3);return}
  destroy(enemy,100+Math.min(combo,20)*10+kindOf(enemy).bonus);
@@ -306,20 +317,20 @@ function fireInterval(){return now<rapidUntil||fever()?120:220}
 function fire(){
  if(state!=='playing'||now-lastShot<fireInterval()||(mode==='camera'&&!trackingFresh()))return;lastShot=now;shots++;const {x,y}=aim;
  for(const p of powerups)if(!p.taken&&Math.hypot(p.x-x,p.y-y)<p.r+50)collect(p);
- let target=null,dmin=Infinity;for(const e of enemies){if(e.dead)continue;const d=Math.hypot(e.x-x,e.y-y);if(d<e.r+56&&d<dmin){dmin=d;target=e}}
+ let target=null,dmin=Infinity;for(const e of enemies){if(!shootable(e))continue;const d=Math.hypot(e.x-x,e.y-y);if(d<e.r+56&&d<dmin){dmin=d;target=e}}
  beams.push({x:target?.x??x,y:target?.y??y,life:.16});tone(300,.08,'sawtooth',.025);
  if(!target){burst(x,y,'#ffffff',5);return}
  shotHits++;hit(target);
  if(now<spreadUntil){
-  const chain=enemies.filter(e=>!e.dead&&e!==target&&Math.hypot(e.x-target.x,e.y-target.y)<300).sort((a,b)=>Math.hypot(a.x-target.x,a.y-target.y)-Math.hypot(b.x-target.x,b.y-target.y)).slice(0,2);
+  const chain=enemies.filter(e=>!e.dead&&e.kind!=='BOMB'&&e!==target&&Math.hypot(e.x-target.x,e.y-target.y)<300).sort((a,b)=>Math.hypot(a.x-target.x,a.y-target.y)-Math.hypot(b.x-target.x,b.y-target.y)).slice(0,2);
   for(const e of chain){beams.push({fromX:target.x,fromY:target.y,x:e.x,y:e.y,life:.2,color:'#b18cff'});hit(e)}
  }
 }
-function nova(){if(state!=='playing'||charge<.99||novaCooldown>0)return;waves.push({x:aim.x,y:aim.y,r:20,life:.65});for(const e of enemies){if(e.dead)continue;if(kindOf(e).boss){e.hp-=8;e.flash=.2;if(e.hp<=0)destroy(e,70+KINDS.BOSS.bonus,true)}else destroy(e,70,true)}charge=0;novaCooldown=5;shake=Math.max(shake,14);announce('NOVA!',1.2);tone(100,.6,'sawtooth',.08)}
 function waveAt(t){return t<20?1:t<40?2:3}
 function bossAlive(){return enemies.some(e=>!e.dead&&e.kind==='BOSS')}
 function spawn(){
  const wave=waveAt(elapsed);
+ if(elapsed>4&&Math.random()<[0,.12,.16,.2][wave]&&enemies.filter(e=>e.kind==='BOMB'&&!e.dead).length<3){enemies.push(makeEnemy('BOMB',rand(95,W-95),-50,{hover:0}));return}
  if(elapsed>5&&Math.random()<.05&&!enemies.some(e=>e.kind==='GOLD'&&!e.dead)){const fromLeft=Math.random()<.5,y=rand(150,260);enemies.push(makeEnemy('GOLD',fromLeft?-40:W+40,y,{vx:fromLeft?270:-270,baseY:y}));return}
  enemies.push(makeEnemy(pick(WAVE_MIX[wave]),rand(95,W-95),-50));
 }
@@ -328,23 +339,23 @@ function updateHUD(){
  setText('score',String(score).padStart(5,'0'));setText('clock',Math.ceil(remaining)+'s');
  setText('phase',state==='playing'?(bossAlive()?'BOSS!':'BABAK '+waveAt(elapsed)):state==='countdown'?'SIAP-SIAP':state==='paused'?'JEDA':state==='result'?'SELESAI':'WAKTU');
  const pips=$('health').children;for(let i=0;i<pips.length;i++)pips[i].classList.toggle('lost',i>=health);
- setValue('charge',charge);setText('charge-label',novaCooldown>0?Math.ceil(novaCooldown)+'s':charge>=.99?'READY':Math.round(charge*100)+'%');setValue('shield',shield);
+ setValue('shield',shield);
  setText('multiplier',[combo>=2?'COMBO ×'+combo:'',fever()?'FEVER ×2':''].filter(Boolean).join(' · '));
  const active=[now<rapidUntil?'⚡ '+Math.ceil((rapidUntil-now)/1000)+'s':'',now<spreadUntil?'✦ '+Math.ceil((spreadUntil-now)/1000)+'s':''].filter(Boolean).join('  ');
  setText('powerup-status',active);
- setText('gesture-display',shieldLocked?'PERISAI HABIS · TURUNKAN TELAPAK':mode==='demo'?(manualCharge?'MENGISI NOVA':shielding?'PERISAI AKTIF':'ARAHKAN KURSOR'):(cameraShield&&!['palm'].includes(gesture)&&shielding?'TEMBAK + PERISAI':(!trackingFresh()?'TUNJUKKAN TANGAN':labels[gesture]??'BIDIK & TEMBAK')));
+ setText('gesture-display',shieldLocked?'PERISAI HABIS · TURUNKAN TELAPAK':mode==='demo'?(shielding?'PERISAI AKTIF':'ARAHKAN KURSOR'):(cameraShield&&!['palm'].includes(gesture)&&shielding?'TEMBAK + PERISAI':(!trackingFresh()?'TUNJUKKAN TANGAN':labels[gesture]??'BIDIK & TEMBAK')));
 }
 // A flawless bot reaches ~60k; human grades are spread below that.
 function gradeFor(points){return points>=30000?'S':points>=18000?'A':points>=9000?'B':points>=3000?'C':'D'}
 function finish(){
- roundCompleted=true;resetInputs();charge=0;wasCharging=false;shielding=false;
+ roundCompleted=true;resetInputs();shielding=false;
  const board=readBoard(mode),rank=board.filter(r=>r.score>=score).length+1;
  setState('result');overlays('result-overlay');resultAt=now;
  $('result-heading').textContent=mode==='demo'?'LATIHAN SELESAI':health<=0?'MARKAS JEBOL!':'RONDE SELESAI';$('result-score').textContent=score.toLocaleString('id-ID');
  $('result-grade').textContent=gradeFor(score);$('result-grade').className='grade grade-'+gradeFor(score).toLowerCase();
  $('result-rank').textContent=score>0&&board.length&&score>board[0].score?'🏆 REKOR BARU HARI INI!':rank<=10&&score>0?'Peringkat #'+rank+' hari ini':'';
  const accuracy=shots?Math.round(shotHits/shots*100):0;
- $('result-summary').textContent=`${hits} target · combo ${maxCombo} · akurasi ${accuracy}% · ${blocked} block`;
+ $('result-summary').textContent=`${hits} target · combo ${maxCombo} · akurasi ${accuracy}% · ${blocked} block${bombsHit?' · bom kena '+bombsHit:''}`;
  $('status').textContent=health<=0?'Markas kehabisan nyawa. Coba lagi!':'Ronde selesai. Simpan skor dan tantang temanmu.';
  setText('next-hint',mode==='camera'?'Pemain berikutnya: tahan ✋ telapak 2 detik untuk main lagi.':'');setValue('next-progress',0);
  announce('',0);tone(480,.4,'triangle');tone(720,.5,'triangle',.04);
@@ -354,32 +365,23 @@ function update(dt){
  if(state!=='paused')for(const s of stars){s.y+=s.v*dt*(state==='playing'?(fever()?3:1.4):.6);if(s.y>H){s.y=0;s.x=Math.random()*W}}
  if(state==='paused'&&autoPaused&&!document.hidden&&trackingFresh()&&trackingRecoveredAt!==null&&now-trackingRecoveredAt>=350){resumeGame();announce('LANJUT!',1)}
  if((state==='playing'||state==='countdown')&&mode==='camera'&&!trackingFresh()){
-  charge=0;wasCharging=false;novaReleaseAt=null;shielding=false;gesturesArmed=false;
+  shielding=false;gesturesArmed=false;
   if(now-lastDetection>650)pauseGame(true);else if(annText!=='TUNJUKKAN TANGAN')announce('TUNJUKKAN TANGAN',1);
   return;
  }
  if(state==='countdown'){const before=Math.ceil(countdown);countdown-=dt;if(Math.ceil(countdown)!==before&&countdown>0)tone(520,.08,'square',.04);announce(countdown>0?String(Math.ceil(countdown)):'MULAI!',.7);if(countdown<=0){setState('playing');tone(880,.25,'square',.05)}return}
  if(state!=='playing')return;
- remaining=Math.max(0,remaining-dt);elapsed=60-remaining;novaCooldown=Math.max(0,novaCooldown-dt);
+ remaining=Math.max(0,remaining-dt);elapsed=60-remaining;
  const wave=waveAt(elapsed);if(wave!==lastWave){lastWave=wave;announce(wave===2?'BABAK 2':'BABAK TERAKHIR',1.6);tone(330,.3,'square',.05)}
  const sec=Math.ceil(remaining);if(sec<=10&&sec>0&&sec!==lastBeep){lastBeep=sec;$('clock').classList.add('urgent');tone(sec<=3?990:660,.07,'square',.04)}
  if(keys.has('ArrowLeft'))aim.x-=dt*650;if(keys.has('ArrowRight'))aim.x+=dt*650;if(keys.has('ArrowUp'))aim.y-=dt*500;if(keys.has('ArrowDown'))aim.y+=dt*500;aim.x=clamp(aim.x,20,W-20);aim.y=clamp(aim.y,100,H-80);
- const charging=mode==='demo'?manualCharge:gesturesArmed&&gesture==='fist';
- if(charging&&novaCooldown===0){charge=Math.min(1,charge+dt/1.5);novaReleaseAt=null}
- else if(mode==='demo'&&wasCharging&&!charging&&charge>=.99&&novaCooldown===0)nova();
- else if(mode==='camera'&&!charging&&charge>=.99&&novaCooldown===0){
-  if(wasCharging)novaReleaseAt=now;
-  if(novaReleaseAt!==null&&['point','palm','pinch'].includes(gesture)){nova();novaReleaseAt=null}
-  else if(novaReleaseAt===null||now-novaReleaseAt>450){charge=0;novaReleaseAt=null}
- }else if(!charging)charge=Math.max(0,charge-dt*1.2);
- wasCharging=charging;
  const wantsShield=mode==='demo'?manualShield:cameraShield;
  if(wantsShield){
   if(shield<=0)shieldLocked=true;
   shielding=!shieldLocked&&shield>0;
   if(shielding){shield=Math.max(0,shield-24*dt);if(shield===0){shieldLocked=true;shielding=false}}
  }else{shielding=false;shield=Math.min(100,shield+22*dt);if(shield>=25)shieldLocked=false}
- // Just aim: any pose except shield (palm) or nova (fist) shoots what is under the ring.
+ // Just aim: any pose except the shield (palm) shoots what is under the ring.
  const onTarget=targetUnderAim();
  if(mode==='demo'?(manualFire||onTarget):gesturesArmed&&!attackPose()&&onTarget)fire();
  if(!bossSpawned&&elapsed>=42)spawnBoss();
@@ -387,6 +389,7 @@ function update(dt){
  const spawned=[];
  for(const e of enemies){
   if(e.dead)continue;e.age=(e.age??0)+dt;e.flash=Math.max(0,(e.flash??0)-dt);e.startX??=e.x;
+  if(e.kind==='BOMB'){e.y+=e.v*dt;e.x=e.startX+Math.sin(e.age*1.6)*(e.sway??28);const over=Math.hypot(e.x-aim.x,e.y-aim.y)<e.r+40&&(mode==='demo'||!attackPose());e.hover=over?(e.hover??0)+dt:0;if(e.y>CORE_Y){e.dead=true;burst(e.x,CORE_Y-6,'#8a8fb5',10,160);tone(180,.1,'sine',.03)}continue}
   if(e.kind==='GOLD'){e.x+=e.vx*dt;e.y=e.baseY+Math.sin(e.age*3)*20;e.spin+=dt*3;if(e.x<-60||e.x>W+60)e.dead=true;continue}
   if(e.kind==='BOSS'){e.y+=e.v*dt;e.x=W/2+Math.sin(e.age*.6)*260;e.shootTimer-=dt;if(e.shootTimer<=0&&e.y>40){e.shootTimer=2.2;spawned.push(makeEnemy('BUG',e.x,e.y+e.r,{r:15,mini:true,v:150,sway:40}))}}
   else{e.y+=e.v*dt;e.x=e.startX+Math.sin(e.age*1.8)*(e.sway??22)}
@@ -402,7 +405,6 @@ function update(dt){
  for(const p of particles){p.life-=dt;p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=100*dt}particles=particles.filter(p=>p.life>0);
  for(const b of beams)b.life-=dt;beams=beams.filter(b=>b.life>0);
  for(const f of floaters){f.life-=dt;f.y-=50*dt}floaters=floaters.filter(f=>f.life>0);
- for(const w of waves){w.r+=2000*dt;w.life-=dt}waves=waves.filter(w=>w.life>0);
  if(health<=0||remaining<=0)finish();
 }
 // Hands-free booth flow: hold an open palm to start, or to replay from results.
@@ -463,7 +465,26 @@ function drawHand(c,hand,w,h,alpha=1){
  c.restore();
 }
 // Cute virus: round body with bumps, big eyes that follow the aiming ring.
+function drawBomb(e){
+ const r=e.r,danger=clamp((e.hover??0)/BOMB_ARM,0,1),blink=danger>0&&Math.sin(now/45)>0;
+ ctx.save();ctx.translate(e.x,e.y);ctx.rotate(Math.sin(e.age*2)*.15);
+ // fuse + spark
+ ctx.lineCap='round';ctx.strokeStyle=OUTLINE;ctx.lineWidth=7;ctx.beginPath();ctx.moveTo(r*.45,-r*.75);ctx.quadraticCurveTo(r*.9,-r*1.35,r*.35,-r*1.55);ctx.stroke();
+ ctx.strokeStyle='#d9b36b';ctx.lineWidth=3.5;ctx.stroke();
+ const sp=6+Math.abs(Math.sin(now/70))*5;ctx.fillStyle='#ffd23f';ctx.beginPath();for(let i=0;i<10;i++){const a=i*Math.PI/5,rr=i%2?sp*.45:sp;ctx.lineTo(r*.35+Math.cos(a)*rr,-r*1.55+Math.sin(a)*rr)}ctx.closePath();ctx.fill();ctx.fillStyle='#ff8a1f';ctx.beginPath();ctx.arc(r*.35,-r*1.55,sp*.35,0,Math.PI*2);ctx.fill();
+ // cap
+ ctx.fillStyle='#5a5f86';ctx.strokeStyle=OUTLINE;ctx.lineWidth=3.5;roundRect(r*.1,-r*1.05,r*.62,r*.42,5);ctx.fill();ctx.stroke();
+ // body
+ ctx.beginPath();ctx.arc(0,0,r,0,Math.PI*2);ctx.fillStyle=blink?'#ff5c8a':'#2b2f4a';ctx.fill();ctx.lineWidth=4;ctx.strokeStyle=OUTLINE;ctx.stroke();
+ ctx.beginPath();ctx.arc(-r*.35,-r*.35,r*.25,0,Math.PI*2);ctx.fillStyle='#ffffff55';ctx.fill();
+ // angry face
+ ctx.strokeStyle='#ffffff';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(-r*.5,-r*.12);ctx.lineTo(-r*.15,r*.02);ctx.moveTo(r*.5,-r*.12);ctx.lineTo(r*.15,r*.02);ctx.stroke();
+ ctx.beginPath();ctx.arc(0,r*.5,r*.18,Math.PI*1.15,Math.PI*1.85);ctx.stroke();
+ ctx.restore();
+ label('BOM',e.x,e.y+r+22,15,'#ff8fb1');
+}
 function drawEnemy(e){
+ if(e.kind==='BOMB'){drawBomb(e);return}
  const k=kindOf(e),r=e.r,fill=e.flash>0?'#ffffff':k.color;
  ctx.save();ctx.translate(e.x,e.y);
  if(k.gold){ // bonus star
@@ -524,14 +545,14 @@ function render(){
   for(const b of beams){const color=b.color??(fever()?'#ff5c8a':'#ffd23f'),max=b.color?.2:.16,t=b.life/max;ctx.save();ctx.globalAlpha=t;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(b.fromX??W/2,b.fromY??CORE_Y+4);ctx.lineTo(b.x,b.y);ctx.strokeStyle=OUTLINE;ctx.lineWidth=12;ctx.stroke();ctx.strokeStyle=color;ctx.lineWidth=7;ctx.stroke();ctx.strokeStyle='#ffffff';ctx.lineWidth=2.5;ctx.stroke();ctx.beginPath();ctx.arc(b.x,b.y,10+(1-t)*34,0,Math.PI*2);ctx.strokeStyle=color;ctx.lineWidth=5;ctx.stroke();ctx.restore()}
   for(const p of particles){ctx.globalAlpha=clamp(p.life*2,0,1);ctx.fillStyle=p.color;ctx.fillRect(p.x-2.5,p.y-2.5,5,5)}ctx.globalAlpha=1;
   for(const f of floaters){ctx.globalAlpha=clamp(f.life/.7,0,1);label(f.text,f.x,f.y,f.big?36:24,f.color??'#ffffff')}ctx.globalAlpha=1;
-  for(const w of waves){ctx.globalAlpha=w.life/.65;ctx.beginPath();ctx.arc(w.x,w.y,w.r,0,Math.PI*2);ctx.fillStyle='#ffd23f22';ctx.fill();circle(ctx,w.x,w.y,w.r,'#ffd23f',10);ctx.globalAlpha=1}
   // aiming ring: turns yellow and "locks" when something is in reach
   const locked=state==='playing'&&targetUnderAim()&&(mode==='demo'||!attackPose());
-  const color=shielding?'#4be3a8':charge>0?'#ff8a1f':locked?'#ffd23f':'#ffffff',rr=locked?20+Math.sin(now/60)*2:26;
+  const bomb=state==='playing'?bombUnderAim():null,danger=bomb?clamp(bomb.hover/BOMB_ARM,0,1):0;
+  const color=bomb?'#ff5c8a':shielding?'#4be3a8':locked?'#ffd23f':'#ffffff',rr=locked?20+Math.sin(now/60)*2:26;
   circle(ctx,aim.x,aim.y,rr,OUTLINE,9);circle(ctx,aim.x,aim.y,rr,color,4.5);
   ctx.save();ctx.translate(aim.x,aim.y);ctx.rotate(locked?now/300:0);for(let i=0;i<4;i++){ctx.rotate(Math.PI/2);ctx.beginPath();ctx.arc(rr+11,0,5,0,Math.PI*2);ctx.fillStyle=color;ctx.fill();ctx.lineWidth=2.5;ctx.strokeStyle=OUTLINE;ctx.stroke()}ctx.restore();
   if(shielding)circle(ctx,aim.x,aim.y,62+Math.sin(now/160)*4,'#4be3a8',4);
-  if(charge>0){ctx.beginPath();ctx.arc(aim.x,aim.y,44,-Math.PI/2,-Math.PI/2+Math.PI*2*charge);ctx.strokeStyle='#ff8a1f';ctx.lineWidth=7;ctx.lineCap='round';ctx.stroke();ctx.lineCap='butt'}
+  if(bomb){ctx.beginPath();ctx.arc(aim.x,aim.y,44,-Math.PI/2,-Math.PI/2+Math.PI*2*danger);ctx.strokeStyle='#ff5c8a';ctx.lineWidth=7;ctx.lineCap='round';ctx.stroke();ctx.lineCap='butt';label('⚠ MENJAUH!',aim.x,aim.y-58,20,'#ff8fb1')}
  }
  if(now>annUntil&&annText){annText='';setText('announcement','')}
 }
@@ -572,8 +593,8 @@ $('sound').onclick=toggleSound;$('stage-sound').onclick=toggleSound;$('fullscree
 $('stage-toggle').onclick=()=>{stage=!stage;applyStage()};$('stage-exit').onclick=()=>{stage=false;applyStage()};
 function pointerAim(e){if(mode!=='demo')return;const r=canvas.getBoundingClientRect();aim={x:clamp((e.clientX-r.left)/r.width*W,20,W-20),y:clamp((e.clientY-r.top)/r.height*H,100,H-80)}}
 function syncActions(){
- manualFire=heldActions.fire.size>0;manualShield=heldActions.shield.size>0;manualCharge=heldActions.charge.size>0;
- for(const [id,active] of [['demo-shield',manualShield],['demo-charge',manualCharge]]){$(id).classList.toggle('held',active);$(id).setAttribute('aria-pressed',String(active))}
+ manualFire=heldActions.fire.size>0;manualShield=heldActions.shield.size>0;
+ for(const [id,active] of [['demo-shield',manualShield]]){$(id).classList.toggle('held',active);$(id).setAttribute('aria-pressed',String(active))}
 }
 function setAction(kind,source,on){if(on)heldActions[kind].add(source);else heldActions[kind].delete(source);syncActions()}
 function releasePointer(e){for(const set of Object.values(heldActions))for(const source of set)if(source.startsWith('pointer:'+e.pointerId+':'))set.delete(source);syncActions()}
@@ -595,13 +616,13 @@ function holdButton(id,kind){
  button.addEventListener('keyup',e=>{if(!['Enter',' '].includes(e.key))return;e.preventDefault();setAction(kind,'button:'+id+':'+e.key,false)});
  button.addEventListener('blur',()=>{for(const source of heldActions[kind])if(source.startsWith('button:'+id+':'))heldActions[kind].delete(source);syncActions()});
 }
-holdButton('demo-shield','shield');holdButton('demo-charge','charge');
-function keyAction(key){return key==='Enter'?'fire':key===' '?'charge':key.toLowerCase()==='s'?'shield':null}
+holdButton('demo-shield','shield');
+function keyAction(key){return key==='Enter'?'fire':key.toLowerCase()==='s'?'shield':null}
 window.addEventListener('keydown',e=>{
  if(['INPUT','TEXTAREA'].includes(e.target.tagName)||e.target.isContentEditable)return;
  if(e.key==='Escape'){e.preventDefault();if(!e.repeat)state==='paused'?resumeGame():pauseGame();return}
  if(e.target.tagName==='BUTTON'||!acceptsInput()||e.altKey||e.ctrlKey||e.metaKey)return;
- if(!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown',' ','Enter','s','S'].includes(e.key))return;
+ if(!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Enter','s','S'].includes(e.key))return;
  e.preventDefault();const key=e.key.toLowerCase()==='s'?'s':e.key;
  if(e.repeat&&!keys.has(key))return;keys.add(key);const kind=keyAction(key);if(kind)setAction(kind,'keyboard:'+key,true);
 });

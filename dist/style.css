@@ -195,3 +195,7 @@ body.stage{background:#000;overflow:hidden}
 @media(max-width:800px){.workspace{grid-template-columns:1fr}.side-col{grid-template-columns:1fr 1fr}.card.points{grid-column:1/-1}.gesture-grid{grid-template-columns:1fr}.start-content{max-width:100%}.start-mascot{display:none}.header{flex-wrap:wrap}.hud-box{min-width:0;padding:4px 10px}.hud-label{font-size:10px}.health-pips i{font-size:18px}.energy progress{width:60px}.arena{min-height:460px}}
 @media(max-width:480px){.side-col{grid-template-columns:1fr}.brand small{display:none}.start-content h2{font-size:46px}.bottom-hud{gap:6px}.status-pill{font-size:12px}.setup-heading{flex-wrap:wrap}.name-row{flex-wrap:wrap}}
 @media(prefers-reduced-motion:reduce){.blob,#clock.urgent{animation:none}.primary,.secondary,.chip-btn{transition:none}}
+
+.card.points strong.minus{color:var(--pink)}
+.start-content p b{color:var(--pink)}
+.m3{background:#ffb3c7}
