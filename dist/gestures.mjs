@@ -13,8 +13,14 @@ export function handFeatures(landmarks,world,aspect=1){
  const size=Math.max(length(p[0],p[9]),length(p[5],p[17]));
  if(size<1e-5)return null;
  const reach=[5,9,13,17].map(i=>length(p[i],p[i+3])/Math.max(1e-5,length(p[i],p[i+1])+length(p[i+1],p[i+2])+length(p[i+2],p[i+3])));
- const pinch=length(p[4],p[8])/size;
- const indexOut=length(p[5],p[8])/size;
+ // World z is noisy, so a real fingertip touch often reads as a gap in 3D.
+ // The image-plane distance is sharper; take whichever says "closer".
+ const flat=landmarks.map(v=>({x:v.x*aspect,y:v.y,z:0}));
+ const flatSize=Math.max(length(flat[0],flat[9]),length(flat[5],flat[17]));
+ const pinch3d=length(p[4],p[8])/size;
+ const pinch2d=flatSize>1e-5?length(flat[4],flat[8])/flatSize:pinch3d;
+ const pinch=Math.min(pinch3d,pinch2d);
+ const indexOut=Math.max(length(p[5],p[8])/size,flatSize>1e-5?length(flat[5],flat[8])/flatSize:0);
  const vector=[...reach,Math.min(pinch,2)*.65,Math.min(length(p[4],p[5])/size,2)*.3,Math.min(length(p[8],p[0])/size,2.5)*.3,Math.min(length(p[4],p[0])/size,2.5)*.3];
  return {reach,pinch,indexOut,vector};
 }
@@ -52,9 +58,13 @@ export function recognizeHand(landmarks,previous='idle',world,aspect=1,categorie
  const modelName=model?.categoryName??'None',score=model?.score??0;
  const personal=calibration?.match(features);
  if(personal)return {...personal,features,modelName};
- const closed=modelName==='Closed_Fist'&&score>=.55;
- // Pinch is a geometric action, not a canned model class. A confident fist vetoes it.
- const pinching=features.pinch<(previous==='pinch'?.38:.28)&&features.indexOut>.3;
+ // Pinch is a geometric action, not a canned model class. Thresholds are looser to
+ // enter (.36) and looser still to hold (.5) so a held pinch does not flicker off.
+ // The model often calls a pinch with curled fingers "Closed_Fist"; that only vetoes
+ // when the index finger is actually folded into the palm.
+ const indexFolded=features.indexOut<.5;
+ const closed=modelName==='Closed_Fist'&&score>=.55&&indexFolded;
+ const pinching=features.pinch<(previous==='pinch'?.5:.36)&&features.indexOut>.35;
  if(pinching&&!closed)return {gesture:'pinch',score:1-features.pinch,source:'pinch',features,modelName};
  const modelGesture={Pointing_Up:'point',Open_Palm:'palm',Closed_Fist:'fist'}[modelName];
  if(modelGesture&&score>=.55)return {gesture:modelGesture,score,source:'model',features,modelName};
@@ -117,12 +127,23 @@ export class HandControls {
    }
    const t=old??{id:this.nextId++,gesture:'idle',candidate:'idle',since:at,samples:0};used.add(t.id);
    if(old&&at-old.lastAt>250){t.gesture='idle';t.candidate='idle';t.samples=0;t.since=at}
-   const recognition=recognizeHand(p,t.gesture,result.worldLandmarks?.[i],aspect,result.gestures?.[i],this.calibration),raw=recognition.gesture;
+   // The looser "hold" threshold also applies while a pinch is still being confirmed.
+   const previousShape=t.gesture==='pinch'||t.candidate==='pinch'?'pinch':t.gesture;
+   const recognition=recognizeHand(p,previousShape,result.worldLandmarks?.[i],aspect,result.gestures?.[i],this.calibration);
+   let raw=recognition.gesture;
+   // A held pinch survives brief "uncertain" frames (motion blur, a finger hidden for
+   // a moment). A clearly different gesture still releases it immediately.
+   if(t.gesture==='pinch'&&raw==='idle'){
+    t.pinchGraceSince??=at;
+    if(at-t.pinchGraceSince<=180)raw='pinch';
+   }else if(raw!=='idle')t.pinchGraceSince=null;
+   if(raw==='pinch'&&recognition.gesture==='pinch')t.pinchGraceSince=null;
    if(raw!==t.candidate){t.candidate=raw;t.since=at;t.samples=1}else t.samples++;
    // Release an old action immediately; require sustained evidence to enter a new one.
    if(raw!==t.gesture)t.gesture='idle';
-   const dwell={point:60,pinch:100,palm:130,fist:220,idle:0}[raw];
+   const dwell={point:60,pinch:70,palm:130,fist:220,idle:0}[raw];
    if(at-t.since>=dwell&&t.samples>=2)t.gesture=raw;
+   recognition.gesture=raw;
    return {...t,p,center,size,label,lastAt:at,raw,...recognition,gesture:t.gesture,role:'ignored'};
   });
   const previous=available.find(t=>t.id===this.primaryId);

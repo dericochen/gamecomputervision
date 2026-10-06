@@ -1,4 +1,4 @@
-import {CONNECTIONS,HandControls,GestureCalibration} from './gestures.mjs?v=4';
+import {CONNECTIONS,HandControls,GestureCalibration} from './gestures.mjs?v=5';
 const desktop=globalThis.arenaApp??null;
 const elementCache=new Map(),textCache=new Map(),valueCache=new Map();
 const $=id=>{let el=elementCache.get(id);if(!el){el=document.getElementById(id);elementCache.set(id,el)}return el};
@@ -9,7 +9,12 @@ const canvas=$('game'),ctx=canvas.getContext('2d'),map=$('hand-map'),mctx=map.ge
 const W=1280,H=720,CORE_Y=H-78,labels={pinch:'ENERGY BLAST',point:'AIM LOCK',palm:'SHIELD ACTIVE',fist:'CHARGING NOVA',idle:'BIDIK BEBAS'};
 let state='menu',mode='camera',boardMode='camera',worker,stream,cameraReady=false,workerBusy=false,workerReady=false,session=0,initTimer,frameTimer,lastInference=0,lastVideoTime=-1,lastDetection=0,landmarks=[],trackingRates=[],last=performance.now(),now=last,elapsed=0,remaining=60,score=0,combo=0,maxCombo=0,hits=0,blocked=0,health=5,shield=100,charge=0,novaCooldown=0,lastShot=-1e6,spawnTimer=0,countdown=0,autoPaused=false,shielding=false,manualShield=false,manualCharge=false,manualFire=false,aim={x:640,y:390},hands=[],gesture='idle',enemies=[],particles=[],beams=[],floaters=[],waves=[],powerups=[],saved=false,annUntil=0,annText='',sound=!!desktop,audio,keys=new Set(),roundCompleted=false;
 let feverUntil=0,rapidUntil=0,spreadUntil=0,shots=0,shotHits=0,bossSpawned=false,lastWave=1,lastBeep=null,shake=0,holdProgress=0,resultAt=0,inferenceAvg=30,delegateName='—',loopErrors=0;
-let stage=readStage();
+let stage=readStage(),autoFire=readFlag('vision-arena:autofire');
+function readFlag(key){try{return localStorage.getItem(key)==='1'}catch{return false}}
+function writeFlag(key,on){try{localStorage.setItem(key,on?'1':'0')}catch{}}
+function syncAutoFire(){setText('autofire-toggle','Tembak otomatis: '+(autoFire?'ON':'OFF'));$('autofire-toggle').setAttribute('aria-pressed',String(autoFire));$('autofire-toggle').classList.toggle('on',autoFire)}
+// Auto-fire only shoots when the reticle is actually over something, so it never sprays.
+function targetUnderAim(){for(const e of enemies)if(!e.dead&&Math.hypot(e.x-aim.x,e.y-aim.y)<e.r+40)return true;for(const p of powerups)if(!p.taken&&Math.hypot(p.x-aim.x,p.y-aim.y)<p.r+40)return true;return false}
 const rand=(a,b)=>a+Math.random()*(b-a),clamp=(x,a,b)=>Math.min(b,Math.max(a,x)),pick=list=>list[Math.floor(Math.random()*list.length)];
 // numHands 4: spectators cannot crowd the player's hands out of the detector.
 const CROWD_HANDS=4;
@@ -20,7 +25,7 @@ const triedGestures=new Set();
 const poseNames={point:'BIDIK',pinch:'TEMBAK',palm:'SHIELD',fist:'NOVA',idle:'BIDIK BEBAS'};
 const calibrationSteps=[
  {kind:'point',icon:'☝',name:'Bidik',help:'Telunjuk tegak, tiga jari lain dilipat. Telapak menghadap kamera. Geser seluruh tangan untuk membidik.'},
- {kind:'pinch',icon:'🤏',name:'Tembak',help:'Sentuhkan ujung ibu jari dan telunjuk. Biarkan tiga jari lain terbuka. Tahan bentuk ini.'},
+ {kind:'pinch',icon:'🤏',name:'Tembak',help:'Sentuhkan ujung ibu jari dan ujung telunjuk sampai menempel. Jari lain boleh terbuka atau ditekuk. Tahan bentuk ini.'},
  {kind:'palm',icon:'✋',name:'Shield',help:'Buka kelima jari. Hadapkan telapak ke kamera dan beri jarak antarjari.'},
  {kind:'fist',icon:'✊',name:'Nova',help:'Kepalkan keempat jari. Letakkan ibu jari di luar kepalan, lalu tahan.'}
 ];
@@ -95,7 +100,8 @@ function processTracking(data,at=performance.now()){
   lastDetection=at;trackingRecoveredAt??=at;
   aim.x=clamp(controls.aim.x*W,20,W-20);aim.y=clamp(controls.aim.y*H,100,H-80);
   gesture=controls.primary.gesture;cameraShield=controls.shield;
-  if(gesture==='point'||gesture==='palm')gesturesArmed=true;
+  // Attacks re-arm once the hand is not pinching or fisting (any other shape is fine).
+  if(!['pinch','fist'].includes(controls.primary.raw))gesturesArmed=true;
  }else{gesture='idle';cameraShield=false;trackingRecoveredAt=null;charge=0;wasCharging=false}
  updateGestureFeedback(controls);
  if(state==='setup'){
@@ -114,8 +120,10 @@ function updateGestureFeedback(controls){
  const pending=primary&&current==='idle'&&primary.raw!=='idle';
  setText('setup-live',pending?'TAHAN · '+poseNames[primary.raw]:name);
  setText('gesture-live',pending?'MENGENALI '+poseNames[primary.raw]:name);
- const hints={point:'Bidik terbaca. Geser tangan untuk menggerakkan lingkaran.',pinch:'Jepitan terbaca. Tahan untuk menembak; lepas untuk berhenti.',palm:'Telapak terbuka terbaca. Shield aktif selama energi tersedia.',fist:'Kepalan terbaca. Tahan sampai READY, lalu buka telapak.',idle:'Lingkaran tetap bisa dibidik. Tegakkan telunjuk dan hadapkan telapak ke kamera.'};
- setText('gesture-detail',primary?(pending?'Pertahankan bentuk sebentar agar aksinya tidak tertukar.':hints[current]):'Tampilkan seluruh tangan dengan cahaya terang. Angkat tangan bidik lebih dulu.');
+ const hints={point:'Bidik terbaca. Geser tangan untuk menggerakkan lingkaran.',pinch:autoFire?'Jepitan terbaca. Tembak otomatis juga aktif saat bidikan mengenai musuh.':'Jepitan terbaca. Tahan untuk menembak; lepas untuk berhenti.',palm:'Telapak terbuka terbaca. Shield aktif selama energi tersedia.',fist:'Kepalan terbaca. Tahan sampai READY, lalu buka telapak.',idle:'Lingkaran tetap bisa dibidik. Tegakkan telunjuk dan hadapkan telapak ke kamera.'};
+ const nearPinch=primary&&current!=='pinch'&&primary.raw!=='pinch'&&primary.raw!=='fist'&&(primary.features?.pinch??9)<.7;
+ nearPinch&&state==='setup'?setText('setup-live','HAMPIR · RAPATKAN JARI'):0;
+ setText('gesture-detail',nearPinch?'Hampir! Tempelkan ujung ibu jari ke ujung telunjuk sampai menyentuh.':primary?(pending?'Pertahankan bentuk sebentar agar aksinya tidak tertukar.':hints[current]):'Tampilkan seluruh tangan dengan cahaya terang. Angkat tangan bidik lebih dulu.');
  const second=controls?.partner;
  setText('secondary-gesture',second?'Tangan kedua: '+poseNames[second.gesture]:'');
  if(state==='setup'&&primary&&current!=='idle')triedGestures.add(current);
@@ -266,7 +274,7 @@ function drawHand(c,hand,w,h,alpha=1){
 function resetRoundEffects(){enemies=[];particles=[];beams=[];waves=[];floaters=[];powerups=[];feverUntil=rapidUntil=spreadUntil=0;shots=shotHits=0;bossSpawned=false;lastWave=1;lastBeep=null;shake=0;holdProgress=0;$('clock').classList.remove('urgent')}
 function startRound(){
  if(mode==='camera'&&(!trackingFresh()||calibrationDraft))return;
- resetInputs();score=combo=maxCombo=hits=blocked=0;health=5;shield=100;shieldLocked=false;charge=0;wasCharging=false;novaReleaseAt=null;gesturesArmed=mode==='demo'||gesture==='point'||gesture==='palm';
+ resetInputs();score=combo=maxCombo=hits=blocked=0;health=5;shield=100;shieldLocked=false;charge=0;wasCharging=false;novaReleaseAt=null;gesturesArmed=mode==='demo'||!['pinch','fist'].includes(gesture);
  elapsed=0;remaining=60;novaCooldown=0;spawnTimer=.2;countdown=3;resetRoundEffects();shielding=false;
  if(mode==='demo')aim={x:640,y:390};saved=false;roundCompleted=false;lastShot=-1e6;autoPaused=false;overlays(null);setState('countdown');
  $('status').textContent=mode==='camera'?'Bidik dengan penanda lingkaran. Jepit untuk menembak; tangan kedua boleh membuka shield.':'Latihan mouse · skor dipisahkan dari kamera.';
@@ -387,7 +395,8 @@ function update(dt){
   shielding=!shieldLocked&&shield>0;
   if(shielding){shield=Math.max(0,shield-24*dt);if(shield===0){shieldLocked=true;shielding=false}}
  }else{shielding=false;shield=Math.min(100,shield+22*dt);if(shield>=25)shieldLocked=false}
- if(mode==='demo'?manualFire:gesturesArmed&&gesture==='pinch')fire();
+ const autoShot=autoFire&&gesturesArmed&&!['fist','palm'].includes(gesture)&&targetUnderAim();
+ if(mode==='demo'?manualFire:gesturesArmed&&(gesture==='pinch'||autoShot))fire();
  if(!bossSpawned&&elapsed>=42)spawnBoss();
  spawnTimer-=dt;if(spawnTimer<=0){spawn();spawnTimer=Math.max(.48,1.3-elapsed*.012)*(bossAlive()?1.5:1)}
  const spawned=[];
@@ -502,6 +511,7 @@ function syncSound(){for(const id of ['sound','stage-sound']){$(id).textContent=
 function toggleSound(){sound=!sound;syncSound();if(sound)tone()}
 async function toggleFullscreen(){try{if(desktop?.toggleFullscreen){await desktop.toggleFullscreen();return}if(document.fullscreenElement)await document.exitFullscreen();else await document.documentElement.requestFullscreen()}catch{$('status').textContent='Layar penuh tidak tersedia di perangkat ini.'}}
 $('sound').onclick=toggleSound;$('stage-sound').onclick=toggleSound;$('fullscreen').onclick=toggleFullscreen;$('stage-fullscreen').onclick=toggleFullscreen;
+$('autofire-toggle').onclick=()=>{autoFire=!autoFire;writeFlag('vision-arena:autofire',autoFire);syncAutoFire()};
 $('stage-toggle').onclick=()=>{stage=!stage;applyStage()};$('stage-exit').onclick=()=>{stage=false;applyStage()};
 function pointerAim(e){if(mode!=='demo')return;const r=canvas.getBoundingClientRect();aim={x:clamp((e.clientX-r.left)/r.width*W,20,W-20),y:clamp((e.clientY-r.top)/r.height*H,100,H-80)}}
 function syncActions(){
@@ -545,4 +555,4 @@ window.addEventListener('pagehide',()=>{resetInputs();pauseGame();stopCamera()})
 window.addEventListener('pageshow',e=>{if(e.persisted&&mode==='camera'&&state!=='menu'&&state!=='result'){setState('setup');overlays('setup-overlay');show('camera-retry');$('setup-title').textContent='Aktifkan kamera kembali';$('setup-info').textContent='Kamera dihentikan saat kamu meninggalkan halaman.'}});
 if(document.modelContext?.registerTool){try{Promise.resolve(document.modelContext.registerTool({name:'read_arena_state',description:'Read round status and today’s device-local leaderboard. Does not activate the camera or play a round.',inputSchema:{type:'object',properties:{},additionalProperties:false},annotations:{readOnlyHint:true,untrustedContentHint:true},execute:input=>{if(!input||Object.keys(input).length)throw new Error('Expected an empty object');return{state,mode,score,remaining:Math.ceil(remaining),health,leaderboard:readBoard(boardMode)}}})).catch(()=>{})}catch{}}
 if(desktop)$('app-edition').textContent='DESKTOP APP';
-applyStage();syncSound();renderBoard();drawMap();requestAnimationFrame(tick);
+applyStage();syncSound();syncAutoFire();renderBoard();drawMap();requestAnimationFrame(tick);
