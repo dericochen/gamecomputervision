@@ -2,6 +2,32 @@
 
 Game kamera 60 detik dengan bidik, energy blast, shield, nova, boss, dan power-up. Kamera diproses di perangkat, tanpa merekam atau mengunggah video. Tersedia sebagai **aplikasi desktop** (Windows, macOS, Linux) dan sebagai situs GitHub Pages.
 
+## Langsung main dari CMD / terminal
+
+Butuh **Node.js 22+** (gratis di https://nodejs.org). Tidak perlu `npm install`.
+
+**Windows:** klik dua kali **`Main-Game.cmd`**, atau dari CMD di folder game:
+
+```cmd
+Main-Game.cmd
+```
+
+**macOS / Linux:**
+
+```sh
+./play.sh
+```
+
+**Lintas platform (lewat npm):**
+
+```sh
+npm run serve        # atau: node scripts/serve.mjs
+```
+
+Skrip ini menyalakan server lokal di `http://localhost:8000` (otomatis pindah port kalau sedang dipakai) dan membuka browser. Localhost dianggap aman oleh browser, jadi kamera langsung bisa dipakai. Tekan `Ctrl+C` untuk berhenti. Pakai Chrome atau Edge.
+
+Opsi: `node scripts/serve.mjs 3000` memakai port lain; tambahkan `--no-open` agar browser tidak dibuka otomatis.
+
 ## Aplikasi desktop
 
 **Download:** buka tab **Actions → Build desktop app → Run workflow** di GitHub. Setelah selesai, unduh artefak:
@@ -19,10 +45,12 @@ Build belum ditandatangani (unsigned):
 **Menjalankan dari source** (Node.js 22+):
 
 ```sh
-npm install
-npm start          # buka aplikasi
+npm install        # download Electron (sekali saja)
+npm start          # buka sebagai aplikasi Electron
 npm run dist:win   # atau dist:mac / dist:linux, hasil di folder release/
 ```
+
+> Catatan: `npm start` butuh `npm install` dulu. Kalau hanya ingin cepat main tanpa install apa pun, pakai cara "Langsung main dari CMD" di atas (`npm run serve`).
 
 Kelebihan aplikasi dibanding versi website:
 - Berjalan offline, dan kamera diizinkan otomatis untuk game ini saja.
