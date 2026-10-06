@@ -104,7 +104,6 @@ Kelebihan aplikasi dibanding versi website:
   - Lepas telapak untuk mengisi ulang sampai 25 sebelum bisa dipakai lagi.
 - **Esc:** jeda. Game hanya dimainkan dengan kamera (tidak ada mode mouse).
 
-**Latar gedung:** arena menampilkan kampus BINUS versi kartun. Untuk memakai foto sendiri, simpan sebagai `dist/assets/campus.png` (lihat `dist/assets/README.md`). Latar putih polos dibuang otomatis.
 
 **Sesuaikan gerakan** (2 gerakan: bidik dan perisai) menyesuaikan pengenal gestur dengan bentuk tangan pemain. Kalibrasi hanya berlaku selama sesi.
 

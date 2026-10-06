@@ -432,78 +432,18 @@ function getSky(){
  c.fillStyle=g;c.fillRect(0,0,W,H);
  return skyLayer=b;
 }
-// Campus backdrop. If dist/assets/campus.png exists (e.g. a real BINUS photo with a
-// transparent sky) it is used; otherwise a cartoon BINUS campus is drawn in code.
-const campusPhoto=typeof Image!=='undefined'?new Image():null;
-let campusLayer=null;
-// Photos with a plain white background get it removed so the sky shows through.
-function keyOutWhite(img){
- const c=document.createElement('canvas');c.width=img.naturalWidth;c.height=img.naturalHeight;const x=c.getContext('2d');x.drawImage(img,0,0);
- try{const d=x.getImageData(0,0,c.width,c.height),p=d.data;for(let i=0;i<p.length;i+=4){const m=Math.min(p[i],p[i+1],p[i+2]);if(m>225&&Math.max(p[i],p[i+1],p[i+2])-m<18)p[i+3]=Math.round(p[i+3]*Math.max(0,(250-m)/25))}x.putImageData(d,0,0)}catch{}
- return c;
-}
-if(campusPhoto){campusPhoto.onload=()=>{try{campusLayer=keyOutWhite(campusPhoto)}catch{campusLayer=campusPhoto}backdrop=null};campusPhoto.onerror=()=>{};campusPhoto.src='assets/campus.png'}
-function drawTower(c,x,w,h,style){
- const top=CORE_Y-h;
- c.lineJoin='round';c.lineWidth=3;c.strokeStyle=OUTLINE;
- if(style==='glass'){
-  const g=c.createLinearGradient(x,0,x+w,0);g.addColorStop(0,'#2a63d6');g.addColorStop(.5,'#5a9bff');g.addColorStop(1,'#1f4fb8');
-  c.fillStyle=g;c.fillRect(x,top,w,h);c.strokeRect(x,top,w,h);
-  c.strokeStyle='#ffffff55';c.lineWidth=1.5;c.beginPath();for(let lx=x+w/5;lx<x+w;lx+=w/5){c.moveTo(lx,top+6);c.lineTo(lx,CORE_Y)}for(let ly=top+14;ly<CORE_Y;ly+=14){c.moveTo(x+2,ly);c.lineTo(x+w-2,ly)}c.stroke();
-  c.fillStyle='#ffffff40';c.fillRect(x+4,top+4,w*.18,h-8);
- }else{
-  c.fillStyle='#eef3fb';c.fillRect(x,top,w,h);c.strokeRect(x,top,w,h);
-  c.fillStyle='#3d7be8';c.fillRect(x+w*.38,top,w*.24,h);
-  c.fillStyle='#7d8fb3';for(let ly=top+10;ly<CORE_Y-6;ly+=11)for(let lx=x+5;lx<x+w-6;lx+=9)if(lx<x+w*.36||lx>x+w*.62)c.fillRect(lx,ly,5,6);
-  c.fillStyle='#2a63d6';c.fillRect(x-2,top-6,w+4,8);c.strokeRect(x-2,top-6,w+4,8);
- }
-}
-function drawTrees(c,x0,x1,y){
- for(let x=x0;x<x1;x+=34){const r=22+((x*13)%9);
-  c.beginPath();c.arc(x,y-r*.7,r,0,Math.PI*2);c.fillStyle=(x/34|0)%2?'#2f9e57':'#3cb769';c.fill();c.lineWidth=3;c.strokeStyle=OUTLINE;c.stroke();
-  c.beginPath();c.arc(x-r*.3,y-r*1.05,r*.35,0,Math.PI*2);c.fillStyle='#ffffff2a';c.fill()}
-}
-function drawCampus(c){
- // flanking towers (back to front)
- drawTower(c,150,52,250,'glass');drawTower(c,205,62,300,'res');drawTower(c,272,50,240,'res');drawTower(c,322,62,270,'glass');
- drawTower(c,905,60,280,'glass');drawTower(c,968,70,330,'res');drawTower(c,1042,52,250,'glass');drawTower(c,1097,44,200,'res');
- // main BINUS building: front face + darker side face for depth
- const L=420,R=880,T=CORE_Y-310,B=CORE_Y-40;
- c.lineJoin='round';c.lineWidth=4;c.strokeStyle=OUTLINE;
- c.beginPath();c.moveTo(L-46,T+34);c.lineTo(L,T);c.lineTo(L,B);c.lineTo(L-46,B);c.closePath();c.fillStyle='#173f9e';c.fill();c.stroke();
- const g=c.createLinearGradient(L,T,R,B);g.addColorStop(0,'#3b82f6');g.addColorStop(.6,'#2563eb');g.addColorStop(1,'#1d4ed8');
- c.beginPath();c.moveTo(L,T);c.lineTo(R,T+44);c.lineTo(R,B);c.lineTo(L,B);c.closePath();c.fillStyle=g;c.fill();c.stroke();
- // white horizontal fins like the photo
- c.fillStyle='#ffffffd9';
- const fins=[[.06,.12,.12],[.2,.1,.2],[.36,.08,.12],[.5,.14,.08],[.1,.3,.1],[.26,.27,.14],[.46,.3,.09],[.04,.48,.08],[.18,.5,.16],[.38,.52,.1],[.6,.6,.12],[.08,.66,.14],[.28,.7,.1],[.46,.72,.16],[.66,.78,.1],[.14,.84,.1],[.36,.88,.14],[.58,.9,.08]];
- for(const [fx,fy,fw] of fins){const x=L+(R-L)*fx,y=T+(B-T)*fy+44*fx;c.save();c.translate(x,y);c.rotate(Math.atan2(44,R-L));c.fillRect(0,0,(R-L)*fw,6);c.restore()}
- // BINUS sign band
- c.save();c.translate(L+(R-L)*.56,T+(B-T)*.22+44*.56);c.rotate(Math.atan2(44,R-L));
- c.fillStyle='#ffffff';c.strokeStyle=OUTLINE;c.lineWidth=4;c.beginPath();c.roundRect?c.roundRect(0,0,190,64,10):c.rect(0,0,190,64);c.fill();c.stroke();
- c.font=`700 44px ${FONT}`;c.textAlign='center';c.textBaseline='middle';c.fillStyle='#1d4ed8';c.fillText('BINUS',95,35);
- c.restore();
- // glass podium at street level
- c.fillStyle='#bfe3ff';c.fillRect(L-60,B,(R-L)+120,CORE_Y-B);c.strokeRect(L-60,B,(R-L)+120,CORE_Y-B);
- c.strokeStyle='#5a8fd6';c.lineWidth=2;c.beginPath();for(let x=L-50;x<R+60;x+=18){c.moveTo(x,B+4);c.lineTo(x,CORE_Y-2)}c.stroke();
- // side wings
- c.lineWidth=3;c.strokeStyle=OUTLINE;c.fillStyle='#dbe9fb';c.fillRect(250,CORE_Y-70,130,70);c.strokeRect(250,CORE_Y-70,130,70);c.fillRect(890,CORE_Y-60,120,60);c.strokeRect(890,CORE_Y-60,120,60);
- drawTrees(c,150,400,CORE_Y);drawTrees(c,900,1140,CORE_Y);
- // blue swoosh ribbon hugging the campus
- c.lineCap='round';
- for(const [w,col,dy] of [[22,OUTLINE,0],[16,'#2563eb',0],[8,'#ffffff',-6],[5,'#7fe0ff',8]]){c.strokeStyle=col;c.lineWidth=w;c.beginPath();c.moveTo(90,CORE_Y-40+dy);c.bezierCurveTo(300,CORE_Y+12+dy,980,CORE_Y+12+dy,1190,CORE_Y-58+dy);c.stroke()}
-}
 function getBackdrop(){
  if(backdrop)return backdrop;
  const b=document.createElement('canvas');b.width=W;b.height=H;const c=b.getContext('2d');
+ // soft clouds
  c.fillStyle='#ffffff14';
  for(const [x,y,s] of [[180,150,1],[520,95,.8],[930,170,1.2],[1150,90,.7],[360,300,.6]]){for(const [dx,dy,r] of [[0,0,46],[40,-14,38],[78,4,42],[38,16,40]]){c.beginPath();c.arc(x+dx*s,y+dy*s,r*s,0,Math.PI*2);c.fill()}}
- if(campusLayer){
-  // fit the photo to the arena width, resting on the base line
-  const iw=campusLayer.width||campusLayer.naturalWidth,ih=campusLayer.height||campusLayer.naturalHeight,scale=Math.min(W/iw,(CORE_Y-40)/ih)*1.05,w=iw*scale,h=ih*scale;
-  c.globalAlpha=.9;c.drawImage(campusLayer,(W-w)/2,CORE_Y-h+20,w,h);c.globalAlpha=1;
- }else{c.globalAlpha=.88;drawCampus(c);c.globalAlpha=1}
- // soft haze so falling viruses stay easy to see in front of the buildings
- const haze=c.createLinearGradient(0,CORE_Y-340,0,CORE_Y);haze.addColorStop(0,'#1c2a7800');haze.addColorStop(1,'#1c2a7866');c.fillStyle=haze;c.fillRect(0,CORE_Y-340,W,340);
+ // campus skyline silhouette above the base
+ const base=CORE_Y;c.fillStyle='#24206099';
+ const blocks=[[0,70,90],[90,110,70],[160,60,120],[280,150,80],[360,90,110],[470,120,60],[530,175,95],[625,95,85],[710,140,120],[830,80,70],[900,160,100],[1000,105,90],[1090,130,75],[1165,85,115]];
+ for(const [x,h,w] of blocks)c.fillRect(x,base-h,w,h);
+ c.fillStyle='#ffd23f55';
+ for(const [x,h,w] of blocks)for(let wy=base-h+14;wy<base-12;wy+=22)for(let wx=x+10;wx<x+w-12;wx+=20)if((wx*7+wy*3)%5<2)c.fillRect(wx,wy,8,10);
  return backdrop=b;
 }
 const roleColor={player:'#ffffff',partner:'#9be7ff',ignored:'#a7a3c9'};
